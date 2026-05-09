@@ -1,0 +1,1238 @@
+openapi: 3.0.3
+info:
+  title: FinRisk API
+  description: |
+    FinRisk is an investment portfolio API. A user owns one or more
+    investment accounts. Each account can buy and sell assets (stocks,
+    ETFs, bonds, crypto). The API computes portfolio value, profit/loss,
+    holdings and a volatility-based risk score.
+
+    ## Conventions
+
+    - **Auth**: none. The API is open (out of scope for this project).
+    - **Currency**: all monetary values are **USD**. There is no FX
+      conversion.
+    - **Versioning**: every endpoint is under `/api/v1`.
+    - **Pagination**: list endpoints accept `page`, `size`, `sort` query
+      params and return a `Page<T>` envelope.
+    - **DTOs**: request and response payloads are DTOs decoupled from the
+      Java domain model. Mappers translate between the two.
+    - **Errors**: every error response uses the `Error` schema with a
+      stable string `code`.
+
+    Architecture: `Controller -> Service -> DAO -> SQL Server`
+    (Java + JDBC). See `uml.md` for class, ER, and sequence diagrams.
+  version: 0.1.0
+  contact:
+    name: FinRisk Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Users
+    description: User accounts (the human owner; no authentication).
+  - name: Accounts
+    description: Investment accounts holding USD cash and assets.
+  - name: Assets
+    description: Tradable instruments (Stock, ETF, Bond, Crypto).
+  - name: Transactions
+    description: Buy/sell trades against an account.
+  - name: Portfolio
+    description: Derived views — holdings, P&L, risk.
+
+paths:
+  # ============================================================ USERS
+  /api/v1/users:
+    post:
+      tags: [Users]
+      summary: Create a new user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags: [Users]
+      summary: List users
+      operationId: listUsers
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: email
+          in: query
+          required: false
+          description: Optional case-insensitive prefix filter on email.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Page of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfUsers'
+
+  /api/v1/users/{id}:
+    get:
+      tags: [Users]
+      summary: Get a user by id
+      operationId: getUser
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/users/{userId}/accounts:
+    get:
+      tags: [Accounts]
+      summary: List all accounts owned by a user
+      operationId: listAccountsByUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortParam'
+      responses:
+        '200':
+          description: Page of accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfAccounts'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ========================================================= ACCOUNTS
+  /api/v1/accounts:
+    post:
+      tags: [Accounts]
+      summary: Open a new investment account (USD)
+      operationId: createAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountCreateRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Owning user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/accounts/{id}:
+    get:
+      tags: [Accounts]
+      summary: Get an account by id
+      operationId: getAccount
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Account found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{id}/deposit:
+    post:
+      tags: [Accounts]
+      summary: Deposit USD into an account
+      operationId: depositCash
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CashMovementRequest'
+      responses:
+        '200':
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{id}/withdraw:
+    post:
+      tags: [Accounts]
+      summary: Withdraw USD from an account
+      operationId: withdrawCash
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CashMovementRequest'
+      responses:
+        '200':
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Insufficient cash balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # =========================================================== ASSETS
+  /api/v1/assets:
+    get:
+      tags: [Assets]
+      summary: List assets
+      operationId: listAssets
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AssetType'
+        - name: symbol
+          in: query
+          required: false
+          description: Exact match on the asset symbol (case-insensitive).
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          description: Free-text search on `name` (substring, case-insensitive).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Page of assets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfAssets'
+    post:
+      tags: [Assets]
+      summary: Register a new asset
+      description: |
+        The body is polymorphic and discriminated by `assetType`. Created
+        through `AssetFactory` server-side, which produces the matching
+        Java subclass (`Stock`, `ETF`, `Bond`, `CryptoAsset`).
+      operationId: createAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetCreateRequest'
+      responses:
+        '201':
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Symbol already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/assets/{id}:
+    get:
+      tags: [Assets]
+      summary: Get an asset by id
+      operationId: getAsset
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Asset found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/assets/{id}/price:
+    put:
+      tags: [Assets]
+      summary: Update the current price of an asset
+      description: |
+        Updates `assets.current_price` and inserts a new row into
+        `asset_price_history`. The risk score for any account holding this
+        asset will be recomputed on next `GET /risk` call.
+      operationId: updateAssetPrice
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [price]
+              properties:
+                price:
+                  type: number
+                  format: double
+                  minimum: 0.0001
+                  description: New price in USD.
+      responses:
+        '200':
+          description: Updated asset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/assets/{id}/price-history:
+    get:
+      tags: [Assets]
+      summary: Get historical prices for an asset (most recent first)
+      operationId: getAssetPriceHistory
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Page of price points (USD)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfAssetPricePoints'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ===================================================== TRANSACTIONS
+  /api/v1/transactions/buy:
+    post:
+      tags: [Transactions]
+      summary: Buy an asset
+      description: |
+        Validates account exists, asset exists, and cash balance is
+        sufficient. Persists the transaction inside a SQL transaction that
+        also debits `accounts.cash_balance` and writes an `audit_logs` row.
+      operationId: buyAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TradeRequest'
+      responses:
+        '201':
+          description: Buy transaction recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Account or asset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Insufficient cash balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/transactions/sell:
+    post:
+      tags: [Transactions]
+      summary: Sell an asset
+      description: |
+        Validates the account owns at least the requested quantity (computed
+        from BUY/SELL history). Persists the transaction inside a SQL
+        transaction that credits `accounts.cash_balance` and writes an
+        `audit_logs` row.
+      operationId: sellAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TradeRequest'
+      responses:
+        '201':
+          description: Sell transaction recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Account or asset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Insufficient asset quantity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/accounts/{accountId}/transactions:
+    get:
+      tags: [Transactions]
+      summary: List transactions for an account
+      operationId: listAccountTransactions
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/TransactionType'
+        - name: assetId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: from
+          in: query
+          required: false
+          description: Inclusive lower bound on `transactionDate` (ISO 8601).
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          description: Exclusive upper bound on `transactionDate` (ISO 8601).
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Page of transactions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfTransactions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ======================================================== PORTFOLIO
+  /api/v1/accounts/{accountId}/portfolio:
+    get:
+      tags: [Portfolio]
+      summary: Get current holdings and total portfolio value
+      operationId: getPortfolio
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Portfolio snapshot (all values in USD)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{accountId}/profit-loss:
+    get:
+      tags: [Portfolio]
+      summary: Get profit/loss per holding and total P&L
+      operationId: getProfitLoss
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Profit/loss breakdown (all values in USD)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfitLossResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{accountId}/risk:
+    get:
+      tags: [Portfolio]
+      summary: Get the portfolio risk score
+      description: |
+        Computed by `RiskService` using a `RiskCalculationStrategy` (default
+        implementation: `VolatilityRiskStrategy`).
+
+        Per asset:
+        1. Pull the last 30 price points from `asset_price_history`.
+        2. Compute log returns `r_i = ln(p_i / p_(i-1))`.
+        3. `volatility = stddev(r_i)`.
+        4. Map volatility to `RiskLevel` (LOW < 0.01, MEDIUM < 0.03,
+           HIGH < 0.06, VERY_HIGH otherwise). If fewer than 5 samples are
+           available, fall back to the asset subclass's default (e.g. ETF
+           defaults to `MEDIUM`).
+
+        Portfolio score is the value-weighted average of per-asset
+        volatilities, normalized to 0..100.
+      operationId: getRiskScore
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Risk score
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskScoreResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    IdPathParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+    PageParam:
+      name: page
+      in: query
+      required: false
+      description: Zero-indexed page number.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      description: Page size (max 100).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    SortParam:
+      name: sort
+      in: query
+      required: false
+      description: |
+        Sort spec as `field,direction`. Direction is `asc` or `desc`.
+        May be repeated for multi-key sort. Example: `sort=createdAt,desc`.
+      schema:
+        type: array
+        items:
+          type: string
+        default: []
+      explode: true
+
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    # ----------------------------------------------------- enums
+    AssetType:
+      type: string
+      enum: [STOCK, ETF, BOND, CRYPTO]
+
+    RiskLevel:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, VERY_HIGH]
+
+    TransactionType:
+      type: string
+      enum: [BUY, SELL]
+
+    Currency:
+      type: string
+      enum: [USD]
+      description: Always `USD`. Included in responses for forward compatibility.
+
+    # ----------------------------------------------- pagination envelope
+    PageMeta:
+      type: object
+      required: [page, size, totalElements, totalPages, first, last]
+      properties:
+        page:
+          type: integer
+          description: Current zero-indexed page.
+        size:
+          type: integer
+          description: Page size that was applied.
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        first:
+          type: boolean
+        last:
+          type: boolean
+
+    # ------------------------------------------------------ user DTOs
+    UserResponse:
+      type: object
+      required: [id, fullName, email, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 150
+        createdAt:
+          type: string
+          format: date-time
+
+    UserCreateRequest:
+      type: object
+      required: [fullName, email]
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 150
+
+    PageOfUsers:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserResponse'
+
+    # --------------------------------------------------- account DTOs
+    AccountResponse:
+      type: object
+      required: [id, userId, accountName, cashBalance, currency, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        accountName:
+          type: string
+          maxLength: 100
+        cashBalance:
+          type: number
+          format: double
+          minimum: 0
+          description: USD balance.
+        currency:
+          $ref: '#/components/schemas/Currency'
+        createdAt:
+          type: string
+          format: date-time
+
+    AccountCreateRequest:
+      type: object
+      required: [userId, accountName]
+      properties:
+        userId:
+          type: integer
+          format: int64
+        accountName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        initialDeposit:
+          type: number
+          format: double
+          minimum: 0
+          default: 0
+          description: Optional opening USD deposit.
+
+    CashMovementRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+          description: USD amount to deposit or withdraw.
+
+    PageOfAccounts:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/AccountResponse'
+
+    # ----------------------------------------------------- asset DTOs
+    AssetBase:
+      type: object
+      description: Common asset fields shared by every subtype.
+      required: [id, symbol, name, assetType, currentPrice, currency, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        symbol:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 150
+        assetType:
+          $ref: '#/components/schemas/AssetType'
+        currentPrice:
+          type: number
+          format: double
+          minimum: 0.0001
+        currency:
+          $ref: '#/components/schemas/Currency'
+        defaultRiskLevel:
+          $ref: '#/components/schemas/RiskLevel'
+          description: |
+            Fallback risk level used when there is not enough price history
+            to compute volatility (see `RiskService` docs).
+        createdAt:
+          type: string
+          format: date-time
+
+    StockResponse:
+      allOf:
+        - $ref: '#/components/schemas/AssetBase'
+        - type: object
+          required: [sector, exchange]
+          properties:
+            sector:
+              type: string
+              maxLength: 100
+            exchange:
+              type: string
+              maxLength: 100
+
+    EtfResponse:
+      allOf:
+        - $ref: '#/components/schemas/AssetBase'
+        - type: object
+          required: [issuer]
+          properties:
+            issuer:
+              type: string
+              maxLength: 150
+            expenseRatio:
+              type: number
+              format: double
+              minimum: 0
+
+    BondResponse:
+      allOf:
+        - $ref: '#/components/schemas/AssetBase'
+        - type: object
+          required: [interestRate, maturityDate, issuer]
+          properties:
+            interestRate:
+              type: number
+              format: double
+              minimum: 0
+              maximum: 100
+            maturityDate:
+              type: string
+              format: date
+            issuer:
+              type: string
+              maxLength: 150
+
+    CryptoResponse:
+      allOf:
+        - $ref: '#/components/schemas/AssetBase'
+        - type: object
+          required: [blockchain]
+          properties:
+            blockchain:
+              type: string
+              maxLength: 100
+
+    AssetResponse:
+      oneOf:
+        - $ref: '#/components/schemas/StockResponse'
+        - $ref: '#/components/schemas/EtfResponse'
+        - $ref: '#/components/schemas/BondResponse'
+        - $ref: '#/components/schemas/CryptoResponse'
+      discriminator:
+        propertyName: assetType
+        mapping:
+          STOCK: '#/components/schemas/StockResponse'
+          ETF: '#/components/schemas/EtfResponse'
+          BOND: '#/components/schemas/BondResponse'
+          CRYPTO: '#/components/schemas/CryptoResponse'
+
+    AssetCreateBase:
+      type: object
+      required: [symbol, name, assetType, currentPrice]
+      properties:
+        symbol:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 150
+        assetType:
+          $ref: '#/components/schemas/AssetType'
+        currentPrice:
+          type: number
+          format: double
+          minimum: 0.0001
+
+    StockCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/AssetCreateBase'
+        - type: object
+          required: [sector, exchange]
+          properties:
+            sector:
+              type: string
+            exchange:
+              type: string
+
+    EtfCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/AssetCreateBase'
+        - type: object
+          required: [issuer]
+          properties:
+            issuer:
+              type: string
+            expenseRatio:
+              type: number
+              format: double
+              minimum: 0
+
+    BondCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/AssetCreateBase'
+        - type: object
+          required: [interestRate, maturityDate, issuer]
+          properties:
+            interestRate:
+              type: number
+              format: double
+              minimum: 0
+              maximum: 100
+            maturityDate:
+              type: string
+              format: date
+            issuer:
+              type: string
+
+    CryptoCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/AssetCreateBase'
+        - type: object
+          required: [blockchain]
+          properties:
+            blockchain:
+              type: string
+
+    AssetCreateRequest:
+      oneOf:
+        - $ref: '#/components/schemas/StockCreateRequest'
+        - $ref: '#/components/schemas/EtfCreateRequest'
+        - $ref: '#/components/schemas/BondCreateRequest'
+        - $ref: '#/components/schemas/CryptoCreateRequest'
+      discriminator:
+        propertyName: assetType
+        mapping:
+          STOCK: '#/components/schemas/StockCreateRequest'
+          ETF: '#/components/schemas/EtfCreateRequest'
+          BOND: '#/components/schemas/BondCreateRequest'
+          CRYPTO: '#/components/schemas/CryptoCreateRequest'
+
+    AssetPricePoint:
+      type: object
+      required: [price, currency, recordedAt]
+      properties:
+        price:
+          type: number
+          format: double
+        currency:
+          $ref: '#/components/schemas/Currency'
+        recordedAt:
+          type: string
+          format: date-time
+
+    PageOfAssets:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/AssetResponse'
+
+    PageOfAssetPricePoints:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/AssetPricePoint'
+
+    # ---------------------------------------------- transaction DTOs
+    TransactionResponse:
+      type: object
+      required:
+        [id, accountId, assetId, transactionType, quantity, unitPrice, totalAmount, currency, transactionDate]
+      properties:
+        id:
+          type: integer
+          format: int64
+        accountId:
+          type: integer
+          format: int64
+        assetId:
+          type: integer
+          format: int64
+        assetSymbol:
+          type: string
+          description: Convenience field, joined from `assets`.
+        transactionType:
+          $ref: '#/components/schemas/TransactionType'
+        quantity:
+          type: integer
+          minimum: 1
+        unitPrice:
+          type: number
+          format: double
+          minimum: 0.0001
+        totalAmount:
+          type: number
+          format: double
+          description: quantity * unitPrice
+        currency:
+          $ref: '#/components/schemas/Currency'
+        transactionDate:
+          type: string
+          format: date-time
+
+    TradeRequest:
+      type: object
+      required: [accountId, assetId, quantity, unitPrice]
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        assetId:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          minimum: 1
+        unitPrice:
+          type: number
+          format: double
+          minimum: 0.0001
+          description: Trade unit price in USD.
+
+    PageOfTransactions:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/TransactionResponse'
+
+    # ----------------------------------------------- portfolio DTOs
+    Holding:
+      type: object
+      required: [assetId, symbol, name, assetType, quantity, currentPrice, currentValue, currency]
+      properties:
+        assetId:
+          type: integer
+          format: int64
+        symbol:
+          type: string
+        name:
+          type: string
+        assetType:
+          $ref: '#/components/schemas/AssetType'
+        quantity:
+          type: integer
+          minimum: 0
+        currentPrice:
+          type: number
+          format: double
+        currentValue:
+          type: number
+          format: double
+          description: quantity * currentPrice (USD)
+        currency:
+          $ref: '#/components/schemas/Currency'
+
+    PortfolioResponse:
+      type: object
+      required:
+        [accountId, currency, cashBalance, holdings, totalHoldingsValue, totalAccountValue]
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        currency:
+          $ref: '#/components/schemas/Currency'
+        cashBalance:
+          type: number
+          format: double
+        holdings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Holding'
+        totalHoldingsValue:
+          type: number
+          format: double
+          description: Sum of holding.currentValue (excludes cash).
+        totalAccountValue:
+          type: number
+          format: double
+          description: cashBalance + totalHoldingsValue.
+
+    HoldingProfitLoss:
+      type: object
+      required: [assetId, symbol, quantity, netInvested, currentValue, profitLoss, currency]
+      properties:
+        assetId:
+          type: integer
+          format: int64
+        symbol:
+          type: string
+        quantity:
+          type: integer
+        netInvested:
+          type: number
+          format: double
+          description: BUY cost minus SELL proceeds (USD).
+        currentValue:
+          type: number
+          format: double
+        profitLoss:
+          type: number
+          format: double
+          description: currentValue - netInvested (USD).
+        profitLossPercent:
+          type: number
+          format: double
+        currency:
+          $ref: '#/components/schemas/Currency'
+
+    ProfitLossResponse:
+      type: object
+      required: [accountId, currency, holdings, totalProfitLoss]
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        currency:
+          $ref: '#/components/schemas/Currency'
+        holdings:
+          type: array
+          items:
+            $ref: '#/components/schemas/HoldingProfitLoss'
+        totalProfitLoss:
+          type: number
+          format: double
+
+    RiskBreakdownItem:
+      type: object
+      required: [assetId, symbol, riskLevel, weight, volatility]
+      properties:
+        assetId:
+          type: integer
+          format: int64
+        symbol:
+          type: string
+        riskLevel:
+          $ref: '#/components/schemas/RiskLevel'
+        weight:
+          type: number
+          format: double
+          description: Holding value divided by total holdings value.
+        volatility:
+          type: number
+          format: double
+          description: |
+            Standard deviation of log returns over the last 30 price points.
+            `null` if insufficient history (the holding then falls back to
+            the asset's default risk level).
+          nullable: true
+        sampleSize:
+          type: integer
+          description: Number of price points used in the volatility calculation.
+
+    RiskScoreResponse:
+      type: object
+      required: [accountId, score, level, strategy, breakdown]
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        score:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: 0 = lowest risk, 100 = highest.
+        level:
+          $ref: '#/components/schemas/RiskLevel'
+        strategy:
+          type: string
+          example: VOLATILITY
+          description: Identifier of the active `RiskCalculationStrategy`.
+        breakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskBreakdownItem'
+
+    # ---------------------------------------------------- error DTO
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: |
+            Stable error code. Possible values:
+            `VALIDATION_ERROR`, `ACCOUNT_NOT_FOUND`, `ASSET_NOT_FOUND`,
+            `USER_NOT_FOUND`, `INSUFFICIENT_BALANCE`, `INSUFFICIENT_QUANTITY`,
+            `INVALID_TRANSACTION`, `EMAIL_ALREADY_EXISTS`,
+            `SYMBOL_ALREADY_EXISTS`, `INTERNAL_ERROR`.
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
