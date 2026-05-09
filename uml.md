@@ -66,16 +66,16 @@ flowchart LR
     end
 
     subgraph model [com.finrisk.model]
-        UserModel[User]
-        AccountModel[Account]
-        AssetModel[Asset abstract]
-        Stock
-        ETF
-        Bond
-        CryptoAsset
-        TransactionModel[Transaction abstract]
-        BuyTransaction
-        SellTransaction
+        UserModel[User record]
+        AccountModel[Account record]
+        AssetModel[Asset sealed interface]
+        Stock[Stock record]
+        ETF[ETF record]
+        Bond[Bond record]
+        CryptoAsset[CryptoAsset record]
+        TransactionModel[Transaction sealed interface]
+        BuyTransaction[BuyTransaction record]
+        SellTransaction[SellTransaction record]
     end
 
     subgraph dto [com.finrisk.dto]
@@ -112,13 +112,20 @@ flowchart LR
         DatabaseConnection
     end
 
+    subgraph util [com.finrisk.util]
+        Db[Db JDBC helper]
+        SqlSort
+        JdbcSqlExceptionMapper
+    end
+
     controller --> service
     controller --> dto
     controller --> mapper
     service --> dao
     service --> factory
     service --> strategy
-    daoImpl --> config
+    daoImpl --> util
+    util --> config
     daoImpl --> model
     service --> model
     service --> exception
@@ -139,97 +146,104 @@ Rules:
 
 ## 3. Class diagram — domain model (inheritance)
 
+The polymorphic hierarchies are modeled as `sealed interface` + `record`
+implementations. Records give us encapsulation (private final fields +
+accessor methods) and immutability for free.
+
 ```mermaid
 classDiagram
     class Asset {
-        <<abstract>>
-        -Long id
-        -String symbol
-        -String name
-        -BigDecimal currentPrice
-        -RiskLevel riskLevel
-        +getId() Long
-        +getSymbol() String
-        +getName() String
-        +getCurrentPrice() BigDecimal
+        <<sealed interface>>
+        +id() Long
+        +symbol() String
+        +name() String
+        +currentPrice() BigDecimal
+        +riskLevel() RiskLevel
+        +createdAt() LocalDateTime
+        +type()* AssetType
         +calculateRiskLevel()* RiskLevel
-        +getAssetType()* AssetType
     }
 
     class Stock {
-        -String sector
-        -String exchange
+        <<record>>
+        +sector() String
+        +exchange() String
+        +type() AssetType
         +calculateRiskLevel() RiskLevel
-        +getAssetType() AssetType
     }
 
     class ETF {
-        -String issuer
-        -BigDecimal expenseRatio
+        <<record>>
+        +issuer() String
+        +expenseRatio() BigDecimal
+        +type() AssetType
         +calculateRiskLevel() RiskLevel
-        +getAssetType() AssetType
     }
 
     class Bond {
-        -BigDecimal interestRate
-        -LocalDate maturityDate
-        -String issuer
+        <<record>>
+        +interestRate() BigDecimal
+        +maturityDate() LocalDate
+        +issuer() String
+        +type() AssetType
         +calculateRiskLevel() RiskLevel
-        +getAssetType() AssetType
     }
 
     class CryptoAsset {
-        -String blockchain
+        <<record>>
+        +blockchain() String
+        +type() AssetType
         +calculateRiskLevel() RiskLevel
-        +getAssetType() AssetType
     }
 
-    Asset <|-- Stock
-    Asset <|-- ETF
-    Asset <|-- Bond
-    Asset <|-- CryptoAsset
+    Asset <|.. Stock
+    Asset <|.. ETF
+    Asset <|.. Bond
+    Asset <|.. CryptoAsset
 
     class Transaction {
-        <<abstract>>
-        -Long id
-        -Long accountId
-        -Long assetId
-        -int quantity
-        -BigDecimal unitPrice
-        -LocalDateTime transactionDate
-        +getTotalAmount() BigDecimal
-        +getTransactionType()* TransactionType
-        +applyTo(Account, Asset)*
+        <<sealed interface>>
+        +id() Long
+        +accountId() Long
+        +assetId() Long
+        +quantity() int
+        +unitPrice() BigDecimal
+        +transactionDate() LocalDateTime
+        +totalAmount() BigDecimal
+        +type()* TransactionType
+        +applyTo(Account)* Account
     }
 
     class BuyTransaction {
-        +getTransactionType() TransactionType
-        +applyTo(Account, Asset)
+        <<record>>
+        +type() TransactionType
+        +applyTo(Account) Account
     }
 
     class SellTransaction {
-        +getTransactionType() TransactionType
-        +applyTo(Account, Asset)
+        <<record>>
+        +type() TransactionType
+        +applyTo(Account) Account
     }
 
-    Transaction <|-- BuyTransaction
-    Transaction <|-- SellTransaction
+    Transaction <|.. BuyTransaction
+    Transaction <|.. SellTransaction
 
     class User {
-        -Long id
-        -String fullName
-        -String email
-        -LocalDateTime createdAt
+        <<record>>
+        +id() Long
+        +fullName() String
+        +email() String
+        +createdAt() LocalDateTime
     }
 
     class Account {
-        -Long id
-        -Long userId
-        -String accountName
-        -BigDecimal cashBalance
-        -LocalDateTime createdAt
-        +deposit(BigDecimal)
-        +withdraw(BigDecimal)
+        <<record>>
+        +id() Long
+        +userId() Long
+        +accountName() String
+        +cashBalance() BigDecimal
+        +createdAt() LocalDateTime
     }
 
     class RiskLevel {
@@ -259,9 +273,23 @@ classDiagram
     Transaction "*" --> "1" Asset : references
 ```
 
-This satisfies: **encapsulation**, **abstraction**, **inheritance**,
-**polymorphism** (`calculateRiskLevel`, `applyTo`), and **`@Override`** in
-child classes.
+This satisfies: **encapsulation** (records have private final fields +
+accessor methods, no setters), **abstraction** (sealed interfaces hide
+the concrete subtype), **inheritance** (records `implements` the sealed
+interface), **polymorphism** (`calculateRiskLevel()`, `applyTo()` behave
+differently per subtype), and **`@Override`** on every concrete method.
+
+> Why sealed instead of `abstract class`?
+> A `sealed interface` lists every allowed implementer in a `permits`
+> clause. The compiler verifies exhaustiveness in `switch` expressions
+> over the family — so `AssetFactory` doesn't need a `default` branch and
+> adding a new subtype causes a compile-time error in every consumer.
+
+> Why `applyTo(Account) Account` and not `applyTo(Account, Asset) void`?
+> Records are immutable, so `applyTo` returns a new `Account` with the
+> updated cash balance instead of mutating the input. The cash debit/credit
+> is also enforced atomically inside `sp_buy_asset`/`sp_sell_asset` (see
+> §8) — `applyTo` keeps the Template Method demonstrable in pure Java.
 
 ---
 
@@ -273,34 +301,36 @@ classDiagram
         <<interface>>
         +findById(ID id) T
         +findAll() List~T~
-        +save(T entity) void
+        +save(T entity) T
         +update(T entity) void
         +delete(ID id) void
     }
 
     class UserDao {
         <<interface>>
-        +findByEmail(String email) User
+        +findByEmail(String email) Optional~User~
+        +pageUsers(...) Page~User~
     }
 
     class AccountDao {
         <<interface>>
-        +findByUserId(Long userId) List~Account~
+        +pageByUserId(Long userId, ...) Page~Account~
         +updateCashBalance(Long id, BigDecimal newBalance) void
     }
 
     class AssetDao {
         <<interface>>
         +findBySymbol(String symbol) Asset
-        +findByType(AssetType type) List~Asset~
+        +pageAssets(...) Page~Asset~
     }
 
     class TransactionDao {
         <<interface>>
-        +findByAccountId(Long accountId) List~Transaction~
-        +getOwnedQuantity(Long accountId, Long assetId) int
-        +saveBuy(BuyTransaction tx) void
-        +saveSell(SellTransaction tx) void
+        +executeBuyProcedure(Long accountId, Long assetId, int qty, BigDecimal price) void
+        +executeSellProcedure(Long accountId, Long assetId, int qty, BigDecimal price) void
+        +findLatest(Long accountId, Long assetId, TransactionType type) Transaction
+        +findSymbol(Long assetId) String
+        +pageForAccount(...) Page~Transaction~
     }
 
     GenericDao <|-- UserDao
@@ -318,15 +348,34 @@ classDiagram
     AssetDao <|.. AssetDaoJdbc
     TransactionDao <|.. TransactionDaoJdbc
 
+    class Db {
+        <<utility>>
+        +findOne(sql, mapper, params) Optional~T~
+        +findMany(sql, mapper, params) List~T~
+        +findPage(countSql, dataSql, mapper, ...) Page~T~
+        +update(sql, params) int
+        +exec(sql, params) void
+        +insertReturning(sql, mapper, params) T
+        +call(sql, params) void
+        +inTx(work) T
+    }
+
     class DatabaseConnection {
+        <<singleton>>
+        +getDataSource() DataSource
         +getConnection() Connection
     }
 
-    UserDaoJdbc ..> DatabaseConnection
-    AccountDaoJdbc ..> DatabaseConnection
-    AssetDaoJdbc ..> DatabaseConnection
-    TransactionDaoJdbc ..> DatabaseConnection
+    UserDaoJdbc ..> Db
+    AccountDaoJdbc ..> Db
+    AssetDaoJdbc ..> Db
+    TransactionDaoJdbc ..> Db
+    Db ..> DatabaseConnection
 ```
+
+> `T save(T entity)` (not `void`): records are immutable, so the DAO can't
+> mutate `entity.id` after `INSERT ... OUTPUT INSERTED.id`. Instead it
+> returns a new record with the generated id (and `created_at`) populated.
 
 This satisfies: **DAO architecture**, **interfaces**, **genericity**,
 **reusability**.
@@ -429,15 +478,16 @@ classDiagram
 A small, deliberate set of patterns — chosen so each one earns its place
 without overcomplicating the project.
 
-| Pattern             | Where it lives                                 | Why                                                                                                         |
-| ------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **DAO**             | `dao/*` package                                | Required by the brief; isolates persistence from business logic.                                            |
-| **Generic DAO**     | `GenericDao<T, ID>`                            | Removes duplication across UserDao / AccountDao / AssetDao / TransactionDao.                                |
-| **Singleton**       | `DatabaseConnection`                           | Single shared `DataSource` / connection pool, lazily initialized and thread-safe.                           |
-| **Template Method** | `Asset` (`calculateRiskLevel`, `getAssetType`) | Parent class fixes the algorithm shape; subclasses fill the steps.                                          |
-| **Factory Method**  | `AssetFactory`, `TransactionFactory`           | Translates a typed request (e.g. `assetType=BOND`) into the right concrete subclass without `if/else` soup. |
-| **Strategy**        | `RiskCalculationStrategy`                      | Lets us swap volatility-based risk for a different formula (e.g. fixed-mapping) without touching services.  |
-| **DTO + Mapper**    | `dto/*`, `mapper/*`                            | API contracts (request/response) are decoupled from domain models; mappers do the translation.              |
+| Pattern             | Where it lives                                            | Why                                                                                                         |
+| ------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **DAO**             | `dao/*` package                                           | Required by the brief; isolates persistence from business logic.                                            |
+| **Generic DAO**     | `GenericDao<T, ID>`                                       | Removes duplication across UserDao / AccountDao / AssetDao / TransactionDao.                                |
+| **Singleton**       | `DatabaseConnection`                                      | Single shared `DataSource` / HikariCP pool, lazily initialized with double-checked locking, thread-safe.    |
+| **Template Method** | `Asset` / `Transaction` sealed interfaces                 | The interface fixes the algorithm shape (`calculateRiskLevel`, `type`, `applyTo`); each `record` `@Override`s the steps. |
+| **Factory Method**  | `AssetFactory`, `TransactionFactory`                      | Modern `switch` expression over the sealed request interface — compiler-checked exhaustive, no `if/else` chain, no `default` branch. |
+| **Strategy**        | `RiskCalculationStrategy` + `VolatilityRiskStrategy`      | Lets us swap volatility-based risk for a different formula (e.g. fixed-mapping) without touching `RiskService`.  |
+| **DTO + Mapper**    | `dto/{request,response}/*` (records), `mapper/*` (static) | API contracts (records with validation annotations) are decoupled from domain models; mappers do the translation. |
+| **JDBC Helper**     | `util/Db`                                                 | One canonical place for `Connection` / `PreparedStatement` / `ResultSet` / `try-with-resources`. DAO methods stay 1-3 lines while the JDBC ceremony stays demonstrably present. |
 
 ### Factory Method — Asset & Transaction creation
 
@@ -448,7 +498,7 @@ classDiagram
     }
 
     class Asset {
-        <<abstract>>
+        <<sealed interface>>
     }
 
     AssetFactory ..> Asset : creates
@@ -462,7 +512,7 @@ classDiagram
     }
 
     class Transaction {
-        <<abstract>>
+        <<sealed interface>>
     }
 
     TransactionFactory ..> Transaction : creates
@@ -470,28 +520,39 @@ classDiagram
     TransactionFactory ..> SellTransaction : creates SELL
 ```
 
-Pseudocode:
+Pseudocode (real form — `switch` on a sealed request interface):
 
 ```java
 public final class AssetFactory {
+    private AssetFactory() {}
+
     public static Asset create(AssetCreateRequest req) {
-        return switch (req.getAssetType()) {
-            case STOCK  -> new Stock(req.getSymbol(), req.getName(), req.getCurrentPrice(),
-                                     req.getStockDetails().getSector(),
-                                     req.getStockDetails().getExchange());
-            case ETF    -> new ETF(req.getSymbol(), req.getName(), req.getCurrentPrice(),
-                                   req.getEtfDetails().getIssuer(),
-                                   req.getEtfDetails().getExpenseRatio());
-            case BOND   -> new Bond(req.getSymbol(), req.getName(), req.getCurrentPrice(),
-                                    req.getBondDetails().getInterestRate(),
-                                    req.getBondDetails().getMaturityDate(),
-                                    req.getBondDetails().getIssuer());
-            case CRYPTO -> new CryptoAsset(req.getSymbol(), req.getName(), req.getCurrentPrice(),
-                                           req.getCryptoDetails().getBlockchain());
+        return switch (req) {
+            case StockCreateRequest s -> new Stock(
+                    null, s.symbol().trim(), s.name().trim(),
+                    s.currentPrice(), RiskLevel.HIGH, null,
+                    s.sector(), s.exchange());
+            case EtfCreateRequest e -> new ETF(
+                    null, e.symbol().trim(), e.name().trim(),
+                    e.currentPrice(), RiskLevel.MEDIUM, null,
+                    e.issuer(), e.expenseRatio());
+            case BondCreateRequest b -> new Bond(
+                    null, b.symbol().trim(), b.name().trim(),
+                    b.currentPrice(), RiskLevel.LOW, null,
+                    b.interestRate(), b.maturityDate(), b.issuer());
+            case CryptoCreateRequest c -> new CryptoAsset(
+                    null, c.symbol().trim(), c.name().trim(),
+                    c.currentPrice(), RiskLevel.VERY_HIGH, null,
+                    c.blockchain());
         };
     }
 }
 ```
+
+No `default` branch is needed — `AssetCreateRequest` is a `sealed
+interface permits StockCreateRequest, EtfCreateRequest, BondCreateRequest,
+CryptoCreateRequest`, so the compiler enforces exhaustiveness. Adding a
+fifth subtype is a compile-time error here until you add the case.
 
 ### Strategy — risk calculation (volatility-based)
 
@@ -686,7 +747,12 @@ erDiagram
 
 ---
 
-## 8. Sequence diagram — `POST /api/transactions/buy`
+## 8. Sequence diagram — `POST /api/v1/transactions/buy`
+
+The atomic part of the buy (lock account, validate cash, update balance,
+insert transaction row, insert audit log) lives in the `sp_buy_asset`
+stored procedure. Java only does the pre-flight existence checks and the
+read-back for the response.
 
 ```mermaid
 sequenceDiagram
@@ -696,56 +762,74 @@ sequenceDiagram
     participant AD as AccountDao
     participant AsD as AssetDao
     participant TD as TransactionDao
+    participant SP as sp_buy_asset
     participant DB as SQL Server
 
-    Client->>TC: POST /api/transactions/buy {accountId, assetId, qty, price}
-    TC->>TS: buy(accountId, assetId, qty, price)
+    Client->>TC: POST /api/v1/transactions/buy {accountId, assetId, quantity, unitPrice}
+    TC->>TS: buy(TradeRequest)
     TS->>AD: findById(accountId)
-    AD->>DB: SELECT * FROM accounts WHERE id = ?
-    DB-->>AD: account row
-    AD-->>TS: Account
+    AD->>DB: SELECT ... FROM accounts WHERE id = ?
+    DB-->>AD: row or null
+    AD-->>TS: Account or null
+    alt account null
+        TS-->>TC: AccountNotFoundException
+        TC-->>Client: 404 ACCOUNT_NOT_FOUND
+    end
     TS->>AsD: findById(assetId)
-    AsD->>DB: SELECT * FROM assets WHERE id = ?
-    DB-->>AsD: asset row
-    AsD-->>TS: Asset
+    AsD-->>TS: Asset or null
+    alt asset null
+        TS-->>TC: AssetNotFoundException
+        TC-->>Client: 404 ASSET_NOT_FOUND
+    end
 
-    alt cash_balance < qty * price
-        TS-->>TC: throw InsufficientBalanceException
-        TC-->>Client: 409 Conflict
+    TS->>TD: executeBuyProcedure(...)
+    TD->>SP: CALL sp_buy_asset(?, ?, ?, ?)
+    Note over SP,DB: SET XACT_ABORT ON; BEGIN TRANSACTION
+    SP->>DB: SELECT cash_balance ... WITH (UPDLOCK, HOLDLOCK)
+    alt cash_balance < quantity * unit_price
+        SP-->>TD: RAISERROR 'INSUFFICIENT_BALANCE'
+        TD-->>TS: InsufficientBalanceException (mapped)
+        TS-->>TC: InsufficientBalanceException
+        TC-->>Client: 409 INSUFFICIENT_BALANCE
     else sufficient funds
-        TS->>DB: BEGIN TRANSACTION
-        TS->>AD: updateCashBalance(accountId, balance - total)
-        TS->>TD: saveBuy(BuyTransaction)
-        TS->>DB: INSERT audit_logs (...)
-        TS->>DB: COMMIT
-        TS-->>TC: Transaction
+        SP->>DB: UPDATE accounts SET cash_balance = cash_balance - total
+        SP->>DB: INSERT INTO transactions (...) VALUES ('BUY', ...)
+        SP->>DB: INSERT INTO audit_logs (...) 'BUY_TRANSACTION_CREATED'
+        Note over SP,DB: COMMIT
+        SP-->>TD: ok
+        TD-->>TS: ok
+        TS->>TD: findLatest(accountId, assetId, BUY) + findSymbol(assetId)
+        TD-->>TS: Transaction record + symbol
+        TS-->>TC: TransactionResponse
         TC-->>Client: 201 Created
     end
 ```
 
 ---
 
-## 9. Sequence diagram — `GET /api/accounts/{id}/portfolio`
+## 9. Sequence diagram — `GET /api/v1/accounts/{id}/portfolio`
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant PC as PortfolioController
     participant PS as PortfolioService
-    participant TD as TransactionDao
+    participant PD as PortfolioDao
     participant AsD as AssetDao
     participant DB as SQL Server
 
-    Client->>PC: GET /api/accounts/1/portfolio
-    PC->>PS: getHoldings(1)
-    PS->>DB: SELECT * FROM vw_portfolio_holdings WHERE account_id = 1
-    Note over PS,DB: View aggregates BUY/SELL into net quantity
-    DB-->>PS: holding rows
-    PS->>AsD: load asset details for each holding
+    Client->>PC: GET /api/v1/accounts/1/portfolio
+    PC->>PS: getPortfolio(1)
+    PS->>PD: findHoldings(1)
+    PD->>DB: SELECT * FROM vw_portfolio_holdings WHERE account_id = 1
+    Note over PD,DB: View aggregates BUY/SELL into net quantity
+    DB-->>PD: holding rows
+    PD-->>PS: List~Holding~
+    PS->>AsD: enrich each holding with asset details
     AsD->>DB: SELECT FROM assets + asset_details_*
     DB-->>AsD: Asset (Stock/ETF/Bond/CryptoAsset)
     AsD-->>PS: List~Asset~
-    PS-->>PC: Portfolio { holdings, totalValue }
+    PS-->>PC: PortfolioResponse { cashBalance, holdings, totalHoldingsValue, totalAccountValue, currency: USD }
     PC-->>Client: 200 OK
 ```
 
@@ -772,25 +856,26 @@ stateDiagram-v2
 
 | Requirement                | Where it shows up in this design                                                  |
 | -------------------------- | --------------------------------------------------------------------------------- |
-| Encapsulation              | All model classes in section 3 — private fields, getters/setters                  |
-| Abstraction                | `Asset` and `Transaction` are abstract                                            |
-| Inheritance                | `Stock`, `ETF`, `Bond`, `CryptoAsset` extend `Asset`; Buy/Sell extend Transaction |
-| Polymorphism + `@Override` | `calculateRiskLevel()`, `applyTo()` overridden per subtype                        |
-| Interfaces                 | `GenericDao`, `UserDao`, `AccountDao`, `AssetDao`, `TransactionDao`, `RiskCalculationStrategy` |
-| Genericity                 | `GenericDao<T, ID>`                                                               |
-| Layered packages           | Section 2: controller / service / dao / model / dto / mapper / factory / strategy / exception / config |
-| DAO architecture           | Section 4: interfaces + JDBC implementations                                      |
-| JDBC                       | `DatabaseConnection`, `Connection`, `PreparedStatement`, `ResultSet`              |
-| SQL injection prevention   | All DAO queries use `?` placeholders                                              |
-| ResultSet mapping          | `mapResultSetToUser`, `mapResultSetToAsset`, `mapResultSetToTransaction`          |
-| Custom exceptions          | Section 6 hierarchy                                                               |
-| SQL skills                 | ER diagram (constraints), views, stored procs, indexes (see openapi + DDL)        |
-| Transactional integrity    | Section 8 sequence diagram (BEGIN/COMMIT around buy)                              |
-| Dockerization              | `sqlserver` + `finrisk-api` Compose services                                      |
-| Design patterns            | Section 6.5: DAO, Generic DAO, Singleton, Template Method, Factory Method, Strategy, DTO + Mapper |
+| Encapsulation              | All domain models are `record` types (private final fields + accessor methods, no setters) — section 3 |
+| Abstraction                | `Asset` and `Transaction` are `sealed interface`s                                 |
+| Inheritance                | `Stock`, `ETF`, `Bond`, `CryptoAsset` `implements Asset`; `BuyTransaction`, `SellTransaction` `implements Transaction` |
+| Polymorphism + `@Override` | `calculateRiskLevel()`, `type()`, `applyTo()` `@Override`'d per record subtype     |
+| Interfaces                 | `GenericDao`, `UserDao`, `AccountDao`, `AssetDao`, `TransactionDao`, `RiskCalculationStrategy`, `Asset`, `Transaction` |
+| Genericity                 | `GenericDao<T, ID>`, `Page<T>`, `Db.findOne(..., RowMapper<T>, ...)`              |
+| Layered packages           | Section 2: controller / service / dao / model / dto / mapper / factory / strategy / exception / config / util |
+| DAO architecture           | Section 4: interfaces + JDBC implementations, all going through `util/Db`         |
+| JDBC                       | `Db` helper centralizes `Connection` / `PreparedStatement` / `ResultSet` / `try-with-resources`; `DatabaseConnection` is the singleton pool |
+| SQL injection prevention   | All DAO queries use `?` placeholders; sort fields go through `SqlSort` whitelist  |
+| ResultSet mapping          | One private static `map(ResultSet rs)` per DAO, used as a `Db.RowMapper<T>`       |
+| Custom exceptions          | Section 6 hierarchy, mapped to HTTP status + stable `Error.code` by `GlobalExceptionHandler` |
+| SQL skills                 | ER diagram (constraints), views (`vw_portfolio_holdings`, …), stored procs (`sp_buy_asset`, `sp_sell_asset`), indexes |
+| Transactional integrity    | `sp_buy_asset` / `sp_sell_asset` wrap balance + transaction + audit insert in a single SQL transaction (`BEGIN TRANSACTION` / `COMMIT` / `ROLLBACK`) — section 8 |
+| Dockerization              | `sqlserver` + `finrisk-api` Compose services (api published on host `:18080`)     |
+| Design patterns            | Section 6.5: DAO, Generic DAO, Singleton, Template Method, Factory Method, Strategy, DTO + Mapper, JDBC Helper |
 | Volatility-based risk      | `VolatilityRiskStrategy` (section 6.5) + `asset_price_history` table              |
 | API versioning             | All paths under `/api/v1` in `openapi.yaml`                                       |
 | Pagination                 | `Page<T>` envelope + `page` / `size` / `sort` query params on all list endpoints  |
+| Modern Java syntax         | Records, sealed interfaces, `switch` expressions on sealed types, text blocks for SQL, `var` for locals |
 
 ---
 

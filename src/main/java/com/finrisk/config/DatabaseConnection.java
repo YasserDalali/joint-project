@@ -1,0 +1,72 @@
+package com.finrisk.config;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
+
+/**
+ * Singleton JDBC pool — raw connections for DAO layer (see {@code uml.md} §6.5).
+ */
+public final class DatabaseConnection {
+
+    private static volatile DataSource instance;
+
+    private DatabaseConnection() {}
+
+    public static DataSource getDataSource() {
+        if (instance == null) {
+            synchronized (DatabaseConnection.class) {
+                if (instance == null) {
+                    instance = buildHikariDataSource();
+                }
+            }
+        }
+        return instance;
+    }
+
+    public static Connection getConnection() throws SQLException {
+        return getDataSource().getConnection();
+    }
+
+    /** Visible for integration tests that replace the pool. */
+    public static void resetForTests() {
+        synchronized (DatabaseConnection.class) {
+            if (instance instanceof HikariDataSource hd) {
+                hd.close();
+            }
+            instance = null;
+        }
+    }
+
+    private static HikariDataSource buildHikariDataSource() {
+        String host = env("DB_HOST", "localhost");
+        String port = env("DB_PORT", "1433");
+        String database = env("DB_NAME", "FinRiskDB");
+        String user = env("DB_USER", "sa");
+        String password = env("DB_PASSWORD", "");
+
+        String jdbcUrl =
+                "jdbc:sqlserver://" + host + ":" + port + ";databaseName=" + database
+                        + ";encrypt=true;trustServerCertificate=true";
+
+        HikariConfig cfg = new HikariConfig();
+        cfg.setJdbcUrl(jdbcUrl);
+        cfg.setUsername(user);
+        cfg.setPassword(password);
+        cfg.setMaximumPoolSize(10);
+        cfg.setPoolName("finrisk-hikari");
+        return new HikariDataSource(cfg);
+    }
+
+    private static String env(String key, String defaultValue) {
+        String v = System.getenv(key);
+        if (v != null && !v.isEmpty()) {
+            return v;
+        }
+        v = System.getProperty(key);
+        return v != null && !v.isEmpty() ? v : defaultValue;
+    }
+}

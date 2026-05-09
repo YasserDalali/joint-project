@@ -1,0 +1,7 @@
+com/finrisk/mapper/UserMapperTest.class
+com/finrisk/controller/UserControllerTest.class
+com/finrisk/strategy/risk/VolatilityRiskStrategyTest.class
+com/finrisk/service/UserServiceTest.class
+com/finrisk/dao/impl/UserDaoJdbcIT.class
+com/finrisk/api/UserApiIT.class
+com/finrisk/support/IntegrationTestSupport.class

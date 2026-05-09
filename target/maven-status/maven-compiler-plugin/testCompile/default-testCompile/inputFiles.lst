@@ -1,0 +1,7 @@
+/home/yasser/Desktop/Development/joint-project/src/test/java/com/finrisk/api/UserApiIT.java
+/home/yasser/Desktop/Development/joint-project/src/test/java/com/finrisk/controller/UserControllerTest.java
+/home/yasser/Desktop/Development/joint-project/src/test/java/com/finrisk/dao/impl/UserDaoJdbcIT.java
+/home/yasser/Desktop/Development/joint-project/src/test/java/com/finrisk/mapper/UserMapperTest.java
+/home/yasser/Desktop/Development/joint-project/src/test/java/com/finrisk/service/UserServiceTest.java
+/home/yasser/Desktop/Development/joint-project/src/test/java/com/finrisk/strategy/risk/VolatilityRiskStrategyTest.java
+/home/yasser/Desktop/Development/joint-project/src/test/java/com/finrisk/support/IntegrationTestSupport.java
