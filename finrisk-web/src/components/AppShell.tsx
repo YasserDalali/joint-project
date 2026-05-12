@@ -34,7 +34,7 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-[100dvh] bg-background pb-[max(5rem,env(safe-area-inset-bottom,0px))] font-body-md text-on-background selection:bg-secondary-container">
+    <div className="min-h-[100dvh] bg-background pb-[max(5rem,env(safe-area-inset-bottom,0px))] pt-16 font-body-md text-on-background selection:bg-secondary-container">
       <header className="fixed left-0 right-0 top-0 z-50 flex h-16 w-full items-center justify-between border-b border-outline-variant bg-surface px-margin-mobile">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 overflow-hidden rounded-full border border-outline-variant bg-surface-container-high" />
@@ -47,7 +47,7 @@ export function AppShell({
         </div>
       </header>
 
-      <div className="pt-16">{children}</div>
+      {children}
 
       <nav className="fixed bottom-0 z-50 flex h-20 w-full items-center justify-around border-t border-outline-variant bg-surface px-unit pb-[max(0.25rem,env(safe-area-inset-bottom,0px))]">
         {nav("dashboard", "dashboard", "Dashboard", true)}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "../api/client";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { formatApiError } from "../util/formatApiError";
+import { formatApiDate } from "../util/formatApiDateTime";
 import type { components } from "../generated/api-schema";
 
 type UserRow = components["schemas"]["UserResponse"];
@@ -17,10 +18,12 @@ export function ProfileView({
   loading,
   setLoading,
   setError,
+  isAdminUi,
 }: {
   loading: boolean;
   setLoading: (v: boolean) => void;
   setError: (s: string | null) => void;
+  isAdminUi: boolean;
 }) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [page, setPage] = useState(0);
@@ -30,6 +33,10 @@ export function ProfileView({
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+
+  useEffect(() => {
+    if (!isAdminUi) setShowCreate(false);
+  }, [isAdminUi]);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -76,6 +83,12 @@ export function ProfileView({
       <div className="mb-section-gap">
         <h1 className="mb-unit font-headline-lg text-headline-lg text-on-background">User management</h1>
         <p className="font-body-md text-on-surface-variant">Create users and browse the FinRisk directory.</p>
+        {!isAdminUi ? (
+          <p className="mt-2 rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3 font-body-sm text-on-surface-variant">
+            Admin-only actions (create users) are hidden. Enable with <code className="font-data-mono text-xs">VITE_ADMIN_UI=true</code> or open the app with{" "}
+            <code className="font-data-mono text-xs">?admin=1</code> once to store a session flag.
+          </p>
+        ) : null}
       </div>
 
       <div className="mb-gutter flex flex-col items-center gap-gutter md:flex-row">
@@ -111,7 +124,7 @@ export function ProfileView({
         </button>
       </div>
 
-      {showCreate ? (
+      {isAdminUi && showCreate ? (
         <form
           className="mb-gutter rounded-lg border border-outline-variant bg-surface-container-lowest p-card-padding vestox-shadow"
           onSubmit={handleCreateUser}
@@ -174,7 +187,7 @@ export function ProfileView({
             <div className="flex items-center justify-between border-t border-outline-variant pt-4">
               <div className="flex flex-col">
                 <span className="font-label-caps text-[10px] text-outline">JOINED</span>
-                <span className="font-data-mono text-data-mono">{new Date(u.createdAt).toLocaleDateString()}</span>
+                <span className="font-data-mono text-data-mono">{formatApiDate(u.createdAt)}</span>
               </div>
               <span className="font-data-mono text-on-surface-variant">#{u.id}</span>
             </div>
@@ -201,14 +214,16 @@ export function ProfileView({
         </button>
       </div>
 
-      <button
-        type="button"
-        className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-on-primary shadow-lg transition-transform active:scale-95"
-        onClick={() => setShowCreate(true)}
-        aria-label="Add user"
-      >
-        <MaterialIcon name="add" style={{ fontVariationSettings: "'wght' 600" }} />
-      </button>
+      {isAdminUi ? (
+        <button
+          type="button"
+          className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-on-primary shadow-lg transition-transform active:scale-95"
+          onClick={() => setShowCreate(true)}
+          aria-label="Add user"
+        >
+          <MaterialIcon name="add" style={{ fontVariationSettings: "'wght' 600" }} />
+        </button>
+      ) : null}
     </main>
   );
 }

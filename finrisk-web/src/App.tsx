@@ -1,16 +1,82 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { apiClient } from "./api/client";
 import { AppShell, type AppTab } from "./components/AppShell";
 import { DashboardView } from "./views/DashboardView";
 import { AssetsView } from "./views/AssetsView";
 import { TradingView } from "./views/TradingView";
 import { ProfileView } from "./views/ProfileView";
+import { formatApiError } from "./util/formatApiError";
+import type { components } from "./generated/api-schema";
+
+type AccountRow = components["schemas"]["AccountResponse"];
+
+function readAdminUiFlag(): boolean {
+  if (import.meta.env.VITE_ADMIN_UI === "true") return true;
+  try {
+    return sessionStorage.getItem("finrisk-admin-ui") === "1";
+  } catch {
+    return false;
+  }
+}
 
 export default function App() {
   const [tab, setTab] = useState<AppTab>("dashboard");
   const [accountId, setAccountId] = useState("1");
   const [ownerUserId, setOwnerUserId] = useState("1");
+  const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAdminUi, setIsAdminUi] = useState(readAdminUiFlag);
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("admin");
+    if (q === "1") {
+      try {
+        sessionStorage.setItem("finrisk-admin-ui", "1");
+      } catch {
+        /* ignore */
+      }
+    }
+    if (q === "0") {
+      try {
+        sessionStorage.removeItem("finrisk-admin-ui");
+      } catch {
+        /* ignore */
+      }
+    }
+    setIsAdminUi(readAdminUiFlag());
+  }, []);
+
+  const reloadAccounts = useCallback(async () => {
+    const uid = Number(ownerUserId);
+    if (!Number.isFinite(uid) || uid <= 0) {
+      setAccounts([]);
+      return;
+    }
+    setError(null);
+    const { data, error: err } = await apiClient.GET("/api/v1/users/{userId}/accounts", {
+      params: { path: { userId: uid }, query: { page: 0, size: 50 } },
+    });
+    if (err) {
+      setError(formatApiError(err));
+      setAccounts([]);
+      return;
+    }
+    const list = data?.content ?? [];
+    setAccounts(list);
+    setAccountId((prev) => {
+      if (list.length === 0) return prev;
+      const cur = prev.trim();
+      if (list.some((a) => String(a.id) === cur)) return prev;
+      return String(list[0]!.id);
+    });
+  }, [ownerUserId]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void reloadAccounts();
+    });
+  }, [reloadAccounts]);
 
   return (
     <AppShell active={tab} onTab={setTab}>
@@ -31,25 +97,32 @@ export default function App() {
           setAccountId={setAccountId}
           ownerUserId={ownerUserId}
           setOwnerUserId={setOwnerUserId}
+          accounts={accounts}
+          reloadAccounts={reloadAccounts}
           loading={loading}
           setLoading={setLoading}
           setError={setError}
         />
       ) : null}
       {tab === "assets" ? (
-        <AssetsView loading={loading} setLoading={setLoading} setError={setError} />
+        <AssetsView loading={loading} setLoading={setLoading} setError={setError} isAdminUi={isAdminUi} />
       ) : null}
       {tab === "trading" ? (
         <TradingView
           accountId={accountId}
           setAccountId={setAccountId}
+          ownerUserId={ownerUserId}
+          setOwnerUserId={setOwnerUserId}
+          accounts={accounts}
+          reloadAccounts={reloadAccounts}
+          isAdminUi={isAdminUi}
           loading={loading}
           setLoading={setLoading}
           setError={setError}
         />
       ) : null}
       {tab === "profile" ? (
-        <ProfileView loading={loading} setLoading={setLoading} setError={setError} />
+        <ProfileView loading={loading} setLoading={setLoading} setError={setError} isAdminUi={isAdminUi} />
       ) : null}
 
       {loading ? (

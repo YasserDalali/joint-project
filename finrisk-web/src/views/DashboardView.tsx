@@ -35,6 +35,8 @@ export function DashboardView({
   setAccountId,
   ownerUserId,
   setOwnerUserId,
+  accounts,
+  reloadAccounts,
   loading,
   setLoading,
   setError,
@@ -43,6 +45,8 @@ export function DashboardView({
   setAccountId: (s: string) => void;
   ownerUserId: string;
   setOwnerUserId: (s: string) => void;
+  accounts: AccountRow[];
+  reloadAccounts: () => Promise<void>;
   loading: boolean;
   setLoading: (v: boolean) => void;
   setError: (s: string | null) => void;
@@ -51,30 +55,12 @@ export function DashboardView({
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [risk, setRisk] = useState<RiskData | null>(null);
   const [pl, setPl] = useState<PlData | null>(null);
-  const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [depositAmount, setDepositAmount] = useState("1000");
   const [withdrawAmount, setWithdrawAmount] = useState("100");
   const [newAccountName, setNewAccountName] = useState("Main");
   const [newAccountDeposit, setNewAccountDeposit] = useState("0");
   const [calcDetailsOpen, setCalcDetailsOpen] = useState(false);
   const [calcAnimatorKey, setCalcAnimatorKey] = useState(0);
-
-  const loadAccounts = useCallback(async () => {
-    const uid = Number(ownerUserId);
-    if (!Number.isFinite(uid) || uid <= 0) {
-      setAccounts([]);
-      return;
-    }
-    const { data, error: err } = await apiClient.GET("/api/v1/users/{userId}/accounts", {
-      params: { path: { userId: uid }, query: { page: 0, size: 50 } },
-    });
-    if (err) {
-      setError(formatApiError(err));
-      setAccounts([]);
-      return;
-    }
-    if (data) setAccounts(data.content);
-  }, [ownerUserId, setError]);
 
   const refreshSnapshots = useCallback(async () => {
     const id = Number(accountId);
@@ -106,12 +92,6 @@ export function DashboardView({
 
   useEffect(() => {
     queueMicrotask(() => {
-      void loadAccounts();
-    });
-  }, [loadAccounts]);
-
-  useEffect(() => {
-    queueMicrotask(() => {
       void refreshSnapshots();
     });
   }, [refreshSnapshots]);
@@ -136,7 +116,7 @@ export function DashboardView({
       return;
     }
     await refreshSnapshots();
-    await loadAccounts();
+    await reloadAccounts();
   }
 
   async function handleWithdraw(e: React.FormEvent) {
@@ -159,7 +139,7 @@ export function DashboardView({
       return;
     }
     await refreshSnapshots();
-    await loadAccounts();
+    await reloadAccounts();
   }
 
   async function handleOpenAccount(e: React.FormEvent) {
@@ -186,7 +166,7 @@ export function DashboardView({
     }
     if (response.status === 201 && data) {
       setAccountId(String(data.id));
-      await loadAccounts();
+      await reloadAccounts();
       await refreshSnapshots();
     }
   }
@@ -210,30 +190,42 @@ export function DashboardView({
           <h1 className="font-headline-lg text-headline-lg text-primary">Account overview</h1>
           <p className="font-body-sm text-on-surface-variant">Portfolio, P&amp;L, and volatility risk for the selected account.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1 font-label-caps text-label-caps text-on-surface-variant">
             Owner user id
             <input
-              className="w-28 rounded-lg border border-outline-variant bg-surface-container-low px-2 py-2 font-data-mono"
+              className="w-24 rounded-lg border border-outline-variant bg-surface-container-low px-2 py-2 font-data-mono"
               value={ownerUserId}
               onChange={(e) => setOwnerUserId(e.target.value)}
               inputMode="numeric"
             />
           </label>
-          <label className="flex flex-col gap-1 font-label-caps text-label-caps text-on-surface-variant">
-            Active account id
-            <input
-              className="w-28 rounded-lg border border-outline-variant bg-surface-container-low px-2 py-2 font-data-mono"
-              value={accountId}
+          <label className="flex min-w-[12rem] flex-col gap-1 font-label-caps text-label-caps text-on-surface-variant">
+            Account
+            <select
+              className="rounded-lg border border-outline-variant bg-surface-container-low px-2 py-2 font-body-md text-on-surface"
+              value={accounts.some((a) => String(a.id) === accountId.trim()) ? accountId.trim() : ""}
               onChange={(e) => setAccountId(e.target.value)}
-              inputMode="numeric"
-            />
+              disabled={accounts.length === 0}
+            >
+              {accounts.length === 0 ? (
+                <option value="">No accounts</option>
+              ) : (
+                accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    #{a.id} · {a.accountName}
+                  </option>
+                ))
+              )}
+            </select>
           </label>
           <button
             type="button"
-            className="self-end rounded-lg border border-secondary px-4 py-2 font-label-caps text-secondary"
+            className="rounded-lg border border-secondary px-4 py-2 font-label-caps text-secondary"
             disabled={loading}
-            onClick={() => void refreshSnapshots()}
+            onClick={() => {
+              void reloadAccounts().then(() => refreshSnapshots());
+            }}
           >
             Refresh
           </button>

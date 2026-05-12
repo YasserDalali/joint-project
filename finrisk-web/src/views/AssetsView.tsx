@@ -104,10 +104,12 @@ export function AssetsView({
   loading,
   setLoading,
   setError,
+  isAdminUi,
 }: {
   loading: boolean;
   setLoading: (v: boolean) => void;
   setError: (s: string | null) => void;
+  isAdminUi: boolean;
 }) {
   const [assets, setAssets] = useState<AssetRow[]>([]);
   const [page, setPage] = useState(0);
@@ -132,6 +134,10 @@ export function AssetsView({
   const [cryptoChain, setCryptoChain] = useState("Ethereum");
 
   const typeFilter: AssetType | undefined = segment === "ALL" ? undefined : segment;
+
+  useEffect(() => {
+    if (!isAdminUi) setShowRegister(false);
+  }, [isAdminUi]);
 
   const loadAssets = useCallback(async () => {
     setLoading(true);
@@ -236,17 +242,25 @@ export function AssetsView({
             <div>
               <h2 className="mb-2 font-headline-lg text-headline-lg text-on-background">Explore assets</h2>
               <p className="font-body-md text-on-surface-variant">Registered instruments and live list prices.</p>
+              {!isAdminUi ? (
+                <p className="mt-2 max-w-xl font-body-sm text-on-surface-variant">
+                  Price updates and registering assets require admin mode (<code className="font-data-mono text-xs">VITE_ADMIN_UI=true</code> or{" "}
+                  <code className="font-data-mono text-xs">?admin=1</code>).
+                </p>
+              ) : null}
             </div>
-            <button
-              type="button"
-              onClick={() => setShowRegister((s) => !s)}
-              className="rounded-lg bg-primary px-5 py-2 font-label-caps text-label-caps text-on-primary"
-            >
-              {showRegister ? "Close register" : "Register asset"}
-            </button>
+            {isAdminUi ? (
+              <button
+                type="button"
+                onClick={() => setShowRegister((s) => !s)}
+                className="rounded-lg bg-primary px-5 py-2 font-label-caps text-label-caps text-on-primary"
+              >
+                {showRegister ? "Close register" : "Register asset"}
+              </button>
+            ) : null}
           </div>
 
-          {showRegister ? (
+          {isAdminUi && showRegister ? (
             <form
               onSubmit={handleCreateAsset}
               className="rounded-lg border border-outline-variant bg-surface-container-lowest p-card-padding vestox-shadow"
@@ -402,11 +416,15 @@ export function AssetsView({
         </div>
       </section>
 
-      <div className="hidden grid-cols-12 gap-2 border-b border-outline-variant px-card-padding py-2 font-label-caps text-label-caps text-on-surface-variant lg:grid">
+      <div
+        className={`hidden gap-2 border-b border-outline-variant px-card-padding py-2 font-label-caps text-label-caps text-on-surface-variant lg:grid ${
+          isAdminUi ? "grid-cols-12" : "grid-cols-10"
+        }`}
+      >
         <div className="col-span-5">Asset</div>
-        <div className="col-span-3 text-right">Last price</div>
+        <div className={`text-right ${isAdminUi ? "col-span-3" : "col-span-5"}`}>Last price</div>
         <div className="col-span-2 text-right">Type</div>
-        <div className="col-span-2 text-right">Update</div>
+        {isAdminUi ? <div className="col-span-2 text-right">Update</div> : null}
       </div>
 
       <div className="grid grid-cols-1 gap-gutter lg:grid-cols-1">
@@ -424,27 +442,29 @@ export function AssetsView({
                 <div className="font-label-caps text-label-caps text-on-surface-variant">{assetMeta(a)}</div>
               </div>
             </div>
-            <div className="mb-2 text-left font-data-mono text-body-md text-on-surface lg:col-span-3 lg:mb-0 lg:text-right">
+            <div className={`mb-2 text-left font-data-mono text-body-md text-on-surface lg:mb-0 lg:text-right ${isAdminUi ? "lg:col-span-3" : "lg:col-span-5"}`}>
               ${a.currentPrice.toFixed(4)}
             </div>
             <div className="mb-2 font-label-caps text-on-surface-variant lg:col-span-2 lg:mb-0 lg:text-right">{a.assetType}</div>
-            <div className="flex flex-wrap items-center gap-2 lg:col-span-2 lg:justify-end">
-              <input
-                className="w-28 rounded border border-outline-variant px-2 py-1 font-data-mono"
-                placeholder="New price"
-                value={priceDrafts[a.id] ?? ""}
-                onChange={(e) => setPriceDrafts((d) => ({ ...d, [a.id]: e.target.value }))}
-                inputMode="decimal"
-              />
-              <button
-                type="button"
-                className="rounded-lg border border-secondary px-3 py-1 font-label-caps text-secondary"
-                disabled={loading}
-                onClick={() => void handleUpdatePrice(a.id)}
-              >
-                Save
-              </button>
-            </div>
+            {isAdminUi ? (
+              <div className="flex flex-wrap items-center gap-2 lg:col-span-2 lg:justify-end">
+                <input
+                  className="w-28 rounded border border-outline-variant px-2 py-1 font-data-mono"
+                  placeholder="New price"
+                  value={priceDrafts[a.id] ?? ""}
+                  onChange={(e) => setPriceDrafts((d) => ({ ...d, [a.id]: e.target.value }))}
+                  inputMode="decimal"
+                />
+                <button
+                  type="button"
+                  className="rounded-lg border border-secondary px-3 py-1 font-label-caps text-secondary"
+                  disabled={loading}
+                  onClick={() => void handleUpdatePrice(a.id)}
+                >
+                  Save
+                </button>
+              </div>
+            ) : null}
           </div>
         ))}
       </div>

@@ -2,20 +2,32 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiClient } from "../api/client";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { formatApiError } from "../util/formatApiError";
+import { formatApiDateTime } from "../util/formatApiDateTime";
 import type { components } from "../generated/api-schema";
 
 type AssetRow = components["schemas"]["AssetResponse"];
 type TxRow = components["schemas"]["TransactionResponse"];
+type AccountRow = components["schemas"]["AccountResponse"];
 
 export function TradingView({
   accountId,
   setAccountId,
+  ownerUserId,
+  setOwnerUserId,
+  accounts,
+  reloadAccounts,
+  isAdminUi,
   loading,
   setLoading,
   setError,
 }: {
   accountId: string;
   setAccountId: (s: string) => void;
+  ownerUserId: string;
+  setOwnerUserId: (s: string) => void;
+  accounts: AccountRow[];
+  reloadAccounts: () => Promise<void>;
+  isAdminUi: boolean;
   loading: boolean;
   setLoading: (v: boolean) => void;
   setError: (s: string | null) => void;
@@ -122,20 +134,41 @@ export function TradingView({
     <main className="mx-auto max-w-7xl px-margin-mobile pb-28 pt-6 md:px-margin-desktop">
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 font-label-caps text-label-caps text-on-surface-variant">
-          Account id
+          Owner user id
           <input
-            className="w-32 rounded border border-outline-variant bg-surface-container-low px-3 py-2 font-data-mono outline-none focus:border-secondary"
-            value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
+            className="w-24 rounded border border-outline-variant bg-surface-container-low px-3 py-2 font-data-mono outline-none focus:border-secondary"
+            value={ownerUserId}
+            onChange={(e) => setOwnerUserId(e.target.value)}
             inputMode="numeric"
           />
+        </label>
+        <label className="flex min-w-[12rem] flex-col gap-1 font-label-caps text-label-caps text-on-surface-variant">
+          Account
+          <select
+            className="w-full rounded border border-outline-variant bg-surface-container-low px-3 py-2 font-body-md outline-none focus:border-secondary"
+            value={accounts.some((a) => String(a.id) === accountId.trim()) ? accountId.trim() : ""}
+            onChange={(e) => setAccountId(e.target.value)}
+            disabled={accounts.length === 0}
+          >
+            {accounts.length === 0 ? (
+              <option value="">No accounts</option>
+            ) : (
+              accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  #{a.id} · {a.accountName}
+                </option>
+              ))
+            )}
+          </select>
         </label>
         <button
           type="button"
           className="rounded-lg border border-outline px-3 py-2 font-label-caps text-label-caps text-secondary"
           onClick={() => {
-            void loadCash();
-            void loadLedger();
+            void reloadAccounts().then(() => {
+              void loadCash();
+              void loadLedger();
+            });
           }}
           disabled={loading}
         >
@@ -199,13 +232,19 @@ export function TradingView({
                 </div>
                 <div>
                   <label className="mb-2 block font-label-caps text-label-caps text-on-surface-variant">
-                    Unit price (USD)
+                    Unit price (USD){!isAdminUi ? " · market" : ""}
                   </label>
                   <input
-                    className="w-full rounded border border-outline-variant bg-surface-container-low px-4 py-3 font-data-mono outline-none focus:border-secondary"
+                    className={`w-full rounded border border-outline-variant px-4 py-3 font-data-mono outline-none focus:border-secondary ${
+                      isAdminUi
+                        ? "bg-surface-container-low"
+                        : "cursor-not-allowed bg-surface-container-high text-on-surface"
+                    }`}
                     value={tradeUnitPrice}
-                    onChange={(e) => setTradeUnitPrice(e.target.value)}
+                    onChange={(e) => isAdminUi && setTradeUnitPrice(e.target.value)}
+                    readOnly={!isAdminUi}
                     inputMode="decimal"
+                    title={isAdminUi ? "Override unit price (admin)" : "Uses list price for the selected asset"}
                   />
                 </div>
               </div>
@@ -282,7 +321,7 @@ export function TradingView({
                     ledger.map((t) => (
                       <tr key={t.id} className="transition-colors hover:bg-surface-container-low">
                         <td className="border-b border-outline-variant p-4 text-on-surface-variant">
-                          {new Date(t.transactionDate).toLocaleString()}
+                          {formatApiDateTime(t.transactionDate)}
                         </td>
                         <td
                           className={`border-b border-outline-variant p-4 font-bold ${
