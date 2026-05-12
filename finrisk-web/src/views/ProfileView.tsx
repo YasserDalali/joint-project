@@ -34,10 +34,6 @@ export function ProfileView({
   const [email, setEmail] = useState("");
   const [showCreate, setShowCreate] = useState(false);
 
-  useEffect(() => {
-    if (!isAdminUi) setShowCreate(false);
-  }, [isAdminUi]);
-
   const loadUsers = useCallback(async () => {
     setLoading(true);
     setError(null);

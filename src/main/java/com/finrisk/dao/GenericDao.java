@@ -2,9 +2,9 @@ package com.finrisk.dao;
 
 import java.util.List;
 
-public interface GenericDao<T, ID> {
+public interface GenericDao<T, K> {
 
-    T findById(ID id);
+    T findById(K id);
 
     List<T> findAll();
 
@@ -12,5 +12,5 @@ public interface GenericDao<T, ID> {
 
     void update(T entity);
 
-    void delete(ID id);
+    void delete(K id);
 }

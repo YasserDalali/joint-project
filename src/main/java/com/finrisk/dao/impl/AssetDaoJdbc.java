@@ -21,7 +21,6 @@ import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -188,6 +187,7 @@ public class AssetDaoJdbc implements AssetDao {
                             """,
                             cr.id(),
                             cr.blockchain());
+            default -> throw new IllegalStateException("Unsupported asset type");
         }
     }
 

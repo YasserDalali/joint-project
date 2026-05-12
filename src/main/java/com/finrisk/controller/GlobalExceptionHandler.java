@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -36,7 +35,7 @@ public class GlobalExceptionHandler {
                                                 fe.getField(),
                                                 "message",
                                                 fe.getDefaultMessage() == null ? "" : fe.getDefaultMessage()))
-                        .collect(Collectors.toList()));
+                        .toList());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorBody("VALIDATION_ERROR", "Validation failed", details));
     }

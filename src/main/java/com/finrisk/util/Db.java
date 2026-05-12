@@ -26,6 +26,18 @@ import java.util.function.Function;
  */
 public final class Db {
 
+    private static final System.Logger LOG = System.getLogger(Db.class.getName());
+
+    private static final String QUERY_FAILED_PREFIX = "query failed: ";
+    private static final String UPDATE_FAILED_PREFIX = "update failed: ";
+    private static final String EXEC_FAILED_PREFIX = "exec failed: ";
+    private static final String INSERT_FAILED_PREFIX = "insert failed: ";
+    private static final String INSERT_NO_ROW_PREFIX = "insert returned no row: ";
+    private static final String CALL_FAILED_PREFIX = "call failed: ";
+    private static final String SCALAR_FAILED_PREFIX = "scalar query failed: ";
+    private static final String PAGE_QUERY_FAILED = "paged query failed";
+    private static final String TX_FAILED = "transaction failed";
+
     private Db() {}
 
     /** Use {@link SqlNull#DECIMAL} where JDBC needs {@code SET NULL} with {@link Types#DECIMAL}. */
@@ -49,7 +61,7 @@ public final class Db {
                 var rs = ps.executeQuery()) {
             return rs.next() ? Optional.of(mapper.map(rs)) : Optional.empty();
         } catch (SQLException e) {
-            throw new DaoException("query failed: " + sql, e);
+            throw new DaoException(QUERY_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -58,7 +70,7 @@ public final class Db {
                 var rs = ps.executeQuery()) {
             return rs.next() ? Optional.of(mapper.map(rs)) : Optional.empty();
         } catch (SQLException e) {
-            throw new DaoException("query failed: " + sql, e);
+            throw new DaoException(QUERY_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -72,7 +84,7 @@ public final class Db {
             }
             return list;
         } catch (SQLException e) {
-            throw new DaoException("query failed: " + sql, e);
+            throw new DaoException(QUERY_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -85,7 +97,7 @@ public final class Db {
             }
             return list;
         } catch (SQLException e) {
-            throw new DaoException("query failed: " + sql, e);
+            throw new DaoException(QUERY_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -94,7 +106,7 @@ public final class Db {
                 var ps = bind(c.prepareStatement(sql), params)) {
             return ps.executeUpdate();
         } catch (SQLException e) {
-            throw new DaoException("update failed: " + sql, e);
+            throw new DaoException(UPDATE_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -102,7 +114,7 @@ public final class Db {
         try (var ps = bind(c.prepareStatement(sql), params)) {
             return ps.executeUpdate();
         } catch (SQLException e) {
-            throw new DaoException("update failed: " + sql, e);
+            throw new DaoException(UPDATE_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -111,7 +123,7 @@ public final class Db {
                 var ps = bind(c.prepareStatement(sql), params)) {
             ps.executeUpdate();
         } catch (SQLException e) {
-            throw new DaoException("exec failed: " + sql, e);
+            throw new DaoException(EXEC_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -119,7 +131,7 @@ public final class Db {
         try (var ps = bind(c.prepareStatement(sql), params)) {
             ps.executeUpdate();
         } catch (SQLException e) {
-            throw new DaoException("exec failed: " + sql, e);
+            throw new DaoException(EXEC_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -128,11 +140,11 @@ public final class Db {
                 var ps = bind(c.prepareStatement(sql), params);
                 var rs = ps.executeQuery()) {
             if (!rs.next()) {
-                throw new DaoException("insert returned no row: " + sql, null);
+                throw new DaoException(INSERT_NO_ROW_PREFIX + sql, null);
             }
             return mapper.map(rs);
         } catch (SQLException e) {
-            throw new DaoException("insert failed: " + sql, e);
+            throw new DaoException(INSERT_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -140,11 +152,11 @@ public final class Db {
         try (var ps = bind(c.prepareStatement(sql), params);
                 var rs = ps.executeQuery()) {
             if (!rs.next()) {
-                throw new DaoException("insert returned no row: " + sql, null);
+                throw new DaoException(INSERT_NO_ROW_PREFIX + sql, null);
             }
             return mapper.map(rs);
         } catch (SQLException e) {
-            throw new DaoException("insert failed: " + sql, e);
+            throw new DaoException(INSERT_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -157,7 +169,7 @@ public final class Db {
             if (mapped != null) {
                 throw mapped;
             }
-            throw new DaoException("call failed: " + sql, e);
+            throw new DaoException(CALL_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -170,7 +182,7 @@ public final class Db {
             }
             return rs.getLong(1);
         } catch (SQLException e) {
-            throw new DaoException("scalar query failed: " + sql, e);
+            throw new DaoException(SCALAR_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -182,7 +194,7 @@ public final class Db {
             }
             return rs.getLong(1);
         } catch (SQLException e) {
-            throw new DaoException("scalar query failed: " + sql, e);
+            throw new DaoException(SCALAR_FAILED_PREFIX + sql, e);
         }
     }
 
@@ -221,7 +233,7 @@ public final class Db {
             boolean last = totalPages == 0 || page >= totalPages - 1;
             return new Page<>(page, size, total, Math.max(totalPages, 0), first, last, content);
         } catch (SQLException e) {
-            throw new DaoException("paged query failed", e);
+            throw new DaoException(PAGE_QUERY_FAILED, e);
         }
     }
 
@@ -238,7 +250,7 @@ public final class Db {
             throw e;
         } catch (Exception e) {
             rollbackQuietly(c);
-            throw new DaoException("transaction failed", e);
+            throw new DaoException(TX_FAILED, e);
         } finally {
             resetAutoCommitQuietly(c);
         }
@@ -248,7 +260,8 @@ public final class Db {
         if (c != null) {
             try {
                 c.rollback();
-            } catch (SQLException ignored) {
+            } catch (SQLException e) {
+                LOG.log(System.Logger.Level.DEBUG, "rollback failed", e);
             }
         }
     }
@@ -258,7 +271,8 @@ public final class Db {
             try {
                 c.setAutoCommit(true);
                 c.close();
-            } catch (SQLException ignored) {
+            } catch (SQLException e) {
+                LOG.log(System.Logger.Level.DEBUG, "reset autocommit/close failed", e);
             }
         }
     }

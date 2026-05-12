@@ -3,6 +3,7 @@ package com.finrisk.service;
 import com.finrisk.dao.AccountDao;
 import com.finrisk.dao.AssetDao;
 import com.finrisk.dao.TransactionDao;
+import com.finrisk.dao.TransactionPageQuery;
 import com.finrisk.dto.request.TradeRequest;
 import com.finrisk.dto.response.Page;
 import com.finrisk.dto.response.TransactionResponse;
@@ -16,11 +17,10 @@ import com.finrisk.model.TransactionType;
 import com.finrisk.util.SqlSort;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
 @Service
 public class TransactionService {
+
+    private static final String ASSET_NOT_FOUND = "Asset not found";
 
     private final AccountDao accountDao;
     private final AssetDao assetDao;
@@ -64,32 +64,25 @@ public class TransactionService {
     private void requireAsset(long id) {
         Asset a = assetDao.findById(id);
         if (a == null) {
-            throw new AssetNotFoundException("Asset not found");
+            throw new AssetNotFoundException(ASSET_NOT_FOUND);
         }
     }
 
-    public Page<TransactionResponse> listForAccount(
-            long accountId,
-            TransactionType type,
-            Long assetId,
-            LocalDateTime from,
-            LocalDateTime to,
-            int page,
-            int size,
-            List<String> sort) {
-        requireAccount(accountId);
-        int safeSize = Math.min(Math.max(size, 1), 100);
-        int safePage = Math.max(page, 0);
+    public Page<TransactionResponse> listForAccount(TransactionPageQuery query) {
+        requireAccount(query.accountId());
+        int safeSize = Math.min(Math.max(query.size(), 1), 100);
+        int safePage = Math.max(query.page(), 0);
         Page<Transaction> p =
                 transactionDao.pageForAccount(
-                        accountId,
-                        type,
-                        assetId,
-                        from,
-                        to,
-                        safePage,
-                        safeSize,
-                        SqlSort.normalizeSortParams(sort));
+                        new TransactionPageQuery(
+                                query.accountId(),
+                                query.type(),
+                                query.assetId(),
+                                query.fromInclusive(),
+                                query.toExclusive(),
+                                safePage,
+                                safeSize,
+                                SqlSort.normalizeSortParams(query.sortSpecs())));
         return new Page<>(
                 p.page(),
                 p.size(),

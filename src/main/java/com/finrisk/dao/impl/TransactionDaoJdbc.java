@@ -1,6 +1,7 @@
 package com.finrisk.dao.impl;
 
 import com.finrisk.dao.TransactionDao;
+import com.finrisk.dao.TransactionPageQuery;
 import com.finrisk.dto.response.Page;
 import com.finrisk.model.BuyTransaction;
 import com.finrisk.model.SellTransaction;
@@ -21,6 +22,8 @@ import java.util.Map;
 
 @Repository
 public class TransactionDaoJdbc implements TransactionDao {
+
+    private static final String FILTER_KEY_ASSET_ID = "asset";
 
     private static Transaction mapRow(ResultSet rs) throws SQLException {
         String tt = rs.getString("transaction_type");
@@ -92,15 +95,15 @@ public class TransactionDaoJdbc implements TransactionDao {
     }
 
     @Override
-    public Page<Transaction> pageForAccount(
-            long accountId,
-            TransactionType type,
-            Long assetId,
-            LocalDateTime fromInclusive,
-            LocalDateTime toExclusive,
-            int page,
-            int size,
-            List<String> sortSpecs) {
+    public Page<Transaction> pageForAccount(TransactionPageQuery q) {
+        long accountId = q.accountId();
+        TransactionType type = q.type();
+        Long assetId = q.assetId();
+        LocalDateTime fromInclusive = q.fromInclusive();
+        LocalDateTime toExclusive = q.toExclusive();
+        int page = q.page();
+        int size = q.size();
+        List<String> sortSpecs = q.sortSpecs();
         String order =
                 SqlSort.orderByClause(sortSpecs, SqlSort.transactionsWhitelist(), "transaction_date DESC, id DESC");
         Map<String, Object> typed = new LinkedHashMap<>();
@@ -112,7 +115,7 @@ public class TransactionDaoJdbc implements TransactionDao {
         }
         if (assetId != null) {
             where.append(" AND asset_id = ? ");
-            typed.put("asset", assetId);
+            typed.put(FILTER_KEY_ASSET_ID, assetId);
         }
         if (fromInclusive != null) {
             where.append(" AND transaction_date >= ? ");
@@ -125,8 +128,7 @@ public class TransactionDaoJdbc implements TransactionDao {
 
         String countSql = "SELECT COUNT(1) FROM dbo.transactions " + where;
         String dataSql =
-                """
-                SELECT id, account_id, asset_id, transaction_type, quantity, unit_price, transaction_date FROM dbo.transactions """
+                "SELECT id, account_id, asset_id, transaction_type, quantity, unit_price, transaction_date FROM dbo.transactions"
                         + where
                         + " ORDER BY "
                         + order
@@ -151,8 +153,8 @@ public class TransactionDaoJdbc implements TransactionDao {
         if (typed.containsKey("tt")) {
             ps.setString(idx++, (String) typed.get("tt"));
         }
-        if (typed.containsKey("asset")) {
-            ps.setLong(idx++, (Long) typed.get("asset"));
+        if (typed.containsKey(FILTER_KEY_ASSET_ID)) {
+            ps.setLong(idx++, (Long) typed.get(FILTER_KEY_ASSET_ID));
         }
         if (typed.containsKey("from")) {
             ps.setTimestamp(idx++, (Timestamp) typed.get("from"));

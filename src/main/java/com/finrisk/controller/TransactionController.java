@@ -1,5 +1,6 @@
 package com.finrisk.controller;
 
+import com.finrisk.dao.TransactionPageQuery;
 import com.finrisk.dto.request.TradeRequest;
 import com.finrisk.dto.response.Page;
 import com.finrisk.dto.response.TransactionResponse;
@@ -55,6 +56,14 @@ public class TransactionController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) List<String> sort) {
         return transactionService.listForAccount(
-                accountId, type, assetId, from, to, page, size, sort == null ? List.of() : sort);
+                new TransactionPageQuery(
+                        accountId,
+                        type,
+                        assetId,
+                        from,
+                        to,
+                        page,
+                        size,
+                        sort == null ? List.of() : sort));
     }
 }

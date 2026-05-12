@@ -4,10 +4,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /** Whitelisted ORDER BY builder for JDBC queries. */
 public final class SqlSort {
+
+    private static final String SORT_ASC = "asc";
+    private static final String SORT_DESC = "desc";
 
     private SqlSort() {}
 
@@ -17,26 +19,29 @@ public final class SqlSort {
         }
         StringBuilder sb = new StringBuilder();
         for (String spec : sortSpecs) {
-            if (spec == null || spec.isBlank()) {
-                continue;
-            }
-            String[] parts = spec.split(",", 2);
-            String field = parts[0].trim();
-            String dir =
-                    parts.length > 1 ? parts[1].trim().toLowerCase(Locale.ROOT) : "asc";
-            if (!dir.equals("asc") && !dir.equals("desc")) {
-                dir = "asc";
-            }
-            String column = whitelist.get(field.toLowerCase(Locale.ROOT));
-            if (column == null) {
-                continue;
-            }
-            if (!sb.isEmpty()) {
-                sb.append(", ");
-            }
-            sb.append(column).append(" ").append(dir.toUpperCase(Locale.ROOT));
+            appendOneSort(sb, spec, whitelist);
         }
         return sb.isEmpty() ? defaultExpr : sb.toString();
+    }
+
+    private static void appendOneSort(StringBuilder sb, String spec, Map<String, String> whitelist) {
+        if (spec == null || spec.isBlank()) {
+            return;
+        }
+        String[] parts = spec.split(",", 2);
+        String field = parts[0].trim();
+        String dir = parts.length > 1 ? parts[1].trim().toLowerCase(Locale.ROOT) : SORT_ASC;
+        if (!dir.equals(SORT_ASC) && !dir.equals(SORT_DESC)) {
+            dir = SORT_ASC;
+        }
+        String column = whitelist.get(field.toLowerCase(Locale.ROOT));
+        if (column == null) {
+            return;
+        }
+        if (!sb.isEmpty()) {
+            sb.append(", ");
+        }
+        sb.append(column).append(" ").append(dir.toUpperCase(Locale.ROOT));
     }
 
     public static Map<String, String> usersWhitelist() {
@@ -79,6 +84,6 @@ public final class SqlSort {
         if (raw == null || raw.isEmpty()) {
             return List.of();
         }
-        return raw.stream().filter(s -> s != null && !s.isBlank()).collect(Collectors.toList());
+        return raw.stream().filter(s -> s != null && !s.isBlank()).toList();
     }
 }

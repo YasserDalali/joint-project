@@ -133,8 +133,7 @@ public class UserDaoJdbc implements UserDao {
                         : " WHERE LOWER(email) LIKE LOWER(?) + N'%' ESCAPE N'\\'";
         String countSql = "SELECT COUNT(1) FROM dbo.users" + where;
         String dataSql =
-                """
-                SELECT id, full_name, email, created_at FROM dbo.users"""
+                "SELECT id, full_name, email, created_at FROM dbo.users"
                         + where
                         + " ORDER BY "
                         + order

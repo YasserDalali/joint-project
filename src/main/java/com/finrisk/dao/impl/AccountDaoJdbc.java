@@ -2,7 +2,6 @@ package com.finrisk.dao.impl;
 
 import com.finrisk.dao.AccountDao;
 import com.finrisk.dto.response.Page;
-import com.finrisk.exception.DaoException;
 import com.finrisk.model.Account;
 import com.finrisk.util.Db;
 import com.finrisk.util.SqlSort;
@@ -109,8 +108,7 @@ public class AccountDaoJdbc implements AccountDao {
         String where = " WHERE user_id = ?";
         String countSql = "SELECT COUNT(1) FROM dbo.accounts" + where;
         String dataSql =
-                """
-                SELECT id, user_id, account_name, cash_balance, created_at FROM dbo.accounts"""
+                "SELECT id, user_id, account_name, cash_balance, created_at FROM dbo.accounts"
                         + where
                         + " ORDER BY "
                         + order

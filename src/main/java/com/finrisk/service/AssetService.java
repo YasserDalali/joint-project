@@ -20,6 +20,8 @@ import java.util.List;
 @Service
 public class AssetService {
 
+    private static final String ASSET_NOT_FOUND = "Asset not found";
+
     private final AssetDao assetDao;
     private final AssetPriceHistoryDao assetPriceHistoryDao;
 
@@ -38,7 +40,7 @@ public class AssetService {
     public AssetResponse getAsset(long id) {
         Asset a = assetDao.findById(id);
         if (a == null) {
-            throw new AssetNotFoundException("Asset not found");
+            throw new AssetNotFoundException(ASSET_NOT_FOUND);
         }
         return AssetMapper.toResponse(a);
     }
@@ -68,7 +70,7 @@ public class AssetService {
     public AssetResponse updatePrice(long assetId, AssetPriceUpdateRequest req) {
         Asset existing = assetDao.findById(assetId);
         if (existing == null) {
-            throw new AssetNotFoundException("Asset not found");
+            throw new AssetNotFoundException(ASSET_NOT_FOUND);
         }
         assetDao.updateCurrentPrice(assetId, req.price());
         assetPriceHistoryDao.insert(assetId, req.price());
@@ -77,7 +79,7 @@ public class AssetService {
 
     public Page<AssetPricePoint> priceHistory(long assetId, int page, int size) {
         if (assetDao.findById(assetId) == null) {
-            throw new AssetNotFoundException("Asset not found");
+            throw new AssetNotFoundException(ASSET_NOT_FOUND);
         }
         int safeSize = Math.min(Math.max(size, 1), 100);
         int safePage = Math.max(page, 0);

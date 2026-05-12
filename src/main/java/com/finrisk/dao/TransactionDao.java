@@ -5,8 +5,6 @@ import com.finrisk.model.Transaction;
 import com.finrisk.model.TransactionType;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
 
 public interface TransactionDao extends GenericDao<Transaction, Long> {
 
@@ -16,15 +14,7 @@ public interface TransactionDao extends GenericDao<Transaction, Long> {
 
     int ownedQuantity(long accountId, long assetId);
 
-    Page<Transaction> pageForAccount(
-            long accountId,
-            TransactionType type,
-            Long assetId,
-            LocalDateTime fromInclusive,
-            LocalDateTime toExclusive,
-            int page,
-            int size,
-            List<String> sortSpecs);
+    Page<Transaction> pageForAccount(TransactionPageQuery query);
 
     String findSymbol(long assetId);
 

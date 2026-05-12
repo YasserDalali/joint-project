@@ -135,10 +135,6 @@ export function AssetsView({
 
   const typeFilter: AssetType | undefined = segment === "ALL" ? undefined : segment;
 
-  useEffect(() => {
-    if (!isAdminUi) setShowRegister(false);
-  }, [isAdminUi]);
-
   const loadAssets = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -254,7 +250,7 @@ export function AssetsView({
                 onClick={() => setShowRegister((s) => !s)}
                 className="rounded-lg bg-primary px-5 py-2 font-label-caps text-label-caps text-on-primary"
               >
-                {showRegister ? "Close register" : "Register asset"}
+                {showRegister && isAdminUi ? "Close register" : "Register asset"}
               </button>
             ) : null}
           </div>

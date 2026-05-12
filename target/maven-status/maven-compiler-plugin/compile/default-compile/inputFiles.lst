@@ -15,6 +15,7 @@
 /home/yasser/Desktop/Development/joint-project/src/main/java/com/finrisk/dao/PortfolioDao.java
 /home/yasser/Desktop/Development/joint-project/src/main/java/com/finrisk/dao/ProfitLossDao.java
 /home/yasser/Desktop/Development/joint-project/src/main/java/com/finrisk/dao/TransactionDao.java
+/home/yasser/Desktop/Development/joint-project/src/main/java/com/finrisk/dao/TransactionPageQuery.java
 /home/yasser/Desktop/Development/joint-project/src/main/java/com/finrisk/dao/UserDao.java
 /home/yasser/Desktop/Development/joint-project/src/main/java/com/finrisk/dao/impl/AccountDaoJdbc.java
 /home/yasser/Desktop/Development/joint-project/src/main/java/com/finrisk/dao/impl/AssetDaoJdbc.java

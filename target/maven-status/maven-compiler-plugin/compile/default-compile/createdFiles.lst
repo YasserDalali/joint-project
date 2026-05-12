@@ -16,6 +16,7 @@ com/finrisk/dto/response/Holding.class
 com/finrisk/dto/response/AssetResponse.class
 com/finrisk/dao/impl/AssetDaoJdbc.class
 com/finrisk/mapper/TransactionMapper.class
+com/finrisk/dao/TransactionPageQuery.class
 com/finrisk/dto/response/ProfitLossResponse.class
 com/finrisk/controller/AccountController.class
 com/finrisk/dao/AccountDao.class

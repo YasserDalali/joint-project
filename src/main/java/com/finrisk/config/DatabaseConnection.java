@@ -6,25 +6,31 @@ import com.zaxxer.hikari.HikariDataSource;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Singleton JDBC pool — raw connections for DAO layer (see {@code uml.md} §6.5).
  */
 public final class DatabaseConnection {
 
-    private static volatile DataSource instance;
+    private static final AtomicReference<DataSource> INSTANCE = new AtomicReference<>();
 
     private DatabaseConnection() {}
 
     public static DataSource getDataSource() {
-        if (instance == null) {
-            synchronized (DatabaseConnection.class) {
-                if (instance == null) {
-                    instance = buildHikariDataSource();
-                }
-            }
+        DataSource cur = INSTANCE.get();
+        if (cur != null) {
+            return cur;
         }
-        return instance;
+        synchronized (DatabaseConnection.class) {
+            cur = INSTANCE.get();
+            if (cur != null) {
+                return cur;
+            }
+            HikariDataSource created = buildHikariDataSource();
+            INSTANCE.set(created);
+            return created;
+        }
     }
 
     public static Connection getConnection() throws SQLException {
@@ -34,10 +40,10 @@ public final class DatabaseConnection {
     /** Visible for integration tests that replace the pool. */
     public static void resetForTests() {
         synchronized (DatabaseConnection.class) {
-            if (instance instanceof HikariDataSource hd) {
+            DataSource ds = INSTANCE.getAndSet(null);
+            if (ds instanceof HikariDataSource hd) {
                 hd.close();
             }
-            instance = null;
         }
     }
 
