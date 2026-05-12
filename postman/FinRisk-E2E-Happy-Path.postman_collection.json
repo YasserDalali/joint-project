@@ -1,0 +1,281 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "FinRisk — E2E happy path",
+    "description": "HTTP steps for FinRisk E2E (same sequence as `scripts/e2e-happy-path.sh`).\n\n**Collection Runner / Newman:** run folder **E2E happy path** in order (01→11). Set `baseUrl`.\n\n**Postman Flows:** import this collection, then build a Flow of **HTTP Request** blocks that reference these requests and chain **Success → Send**. See `postman/flows/FINRISK-E2E-HAPPY-PATH.md` and [Run requests in sequence](https://learning.postman.com/docs/postman-flows/tutorials/advanced/run-requests-in-sequence/).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:18080" },
+    { "key": "userId", "value": "" },
+    { "key": "accountId", "value": "" },
+    { "key": "assetId", "value": "" },
+    { "key": "e2eEmail", "value": "" },
+    { "key": "e2eSymbol", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "E2E happy path",
+      "description": "Run the whole folder in order (Collection Runner: select this folder → Run). Request **01** generates a fresh email and stock symbol for the run.",
+      "item": [
+        {
+          "name": "01 — Actuator health",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set('e2eEmail', 'e2e-' + ts + '@example.com');",
+                  "let sym = 'E' + ts.toString(36).toUpperCase();",
+                  "if (sym.length > 18) sym = sym.slice(0, 18);",
+                  "pm.collectionVariables.set('e2eSymbol', sym);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.code === 200);",
+                  "const j = pm.response.json();",
+                  "pm.test('status UP', () => j.status === 'UP');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/health"
+          }
+        },
+        {
+          "name": "02 — Create user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.code === 201);",
+                  "const j = pm.response.json();",
+                  "pm.test('has id', () => typeof j.id === 'number');",
+                  "pm.collectionVariables.set('userId', String(j.id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"E2E User\",\n  \"email\": \"{{e2eEmail}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/users"
+          }
+        },
+        {
+          "name": "03 — Create account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.code === 201);",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('accountId', String(j.id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": {{userId}},\n  \"accountName\": \"Primary\",\n  \"initialDeposit\": 100000\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/accounts"
+          }
+        },
+        {
+          "name": "04 — Deposit cash",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.code === 200);",
+                  "const j = pm.response.json();",
+                  "pm.test('cash increased', () => Number(j.cashBalance) >= 150000);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 50000\n}" },
+            "url": "{{baseUrl}}/api/v1/accounts/{{accountId}}/deposit"
+          }
+        },
+        {
+          "name": "05 — Create stock asset",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.code === 201);",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('assetId', String(j.id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assetType\": \"STOCK\",\n  \"symbol\": \"{{e2eSymbol}}\",\n  \"name\": \"E2E Corp\",\n  \"currentPrice\": 50,\n  \"sector\": \"Tech\",\n  \"exchange\": \"NASDAQ\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/assets"
+          }
+        },
+        {
+          "name": "06 — Update asset price",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('HTTP 200', () => pm.response.code === 200);"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"price\": 55\n}" },
+            "url": "{{baseUrl}}/api/v1/assets/{{assetId}}/price"
+          }
+        },
+        {
+          "name": "07 — Buy 10 shares",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('HTTP 201', () => pm.response.code === 201);"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": {{accountId}},\n  \"assetId\": {{assetId}},\n  \"quantity\": 10,\n  \"unitPrice\": 55\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/transactions/buy"
+          }
+        },
+        {
+          "name": "08 — Portfolio (expect qty 10)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.code === 200);",
+                  "const p = pm.response.json();",
+                  "pm.test('one holding', () => p.holdings && p.holdings.length === 1);",
+                  "pm.test('quantity 10', () => p.holdings[0].quantity === 10);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounts/{{accountId}}/portfolio"
+          }
+        },
+        {
+          "name": "09 — Sell 4 shares",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('HTTP 201', () => pm.response.code === 201);"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": {{accountId}},\n  \"assetId\": {{assetId}},\n  \"quantity\": 4,\n  \"unitPrice\": 60\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/transactions/sell"
+          }
+        },
+        {
+          "name": "10 — Profit / loss",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.code === 200);",
+                  "const j = pm.response.json();",
+                  "pm.test('has holdings PnL', () => Array.isArray(j.holdings));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounts/{{accountId}}/profit-loss"
+          }
+        },
+        {
+          "name": "11 — Risk score",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.code === 200);",
+                  "const j = pm.response.json();",
+                  "pm.test('has score', () => typeof j.score === 'number');",
+                  "pm.test('has breakdown', () => Array.isArray(j.breakdown));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounts/{{accountId}}/risk"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -130,7 +130,7 @@ GO
 IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.audit_logs (
-        id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        id BIGINT IDENTrITY(1,1) NOT NULL PRIMARY KEY,
         entity_name NVARCHAR(100) NOT NULL,
         entity_id BIGINT NOT NULL,
         action_type NVARCHAR(100) NOT NULL,

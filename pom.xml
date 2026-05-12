@@ -19,6 +19,12 @@
   <properties>
     <java.version>21</java.version>
     <rest-assured.version>5.5.0</rest-assured.version>
+    <!-- Local SonarQube (docker compose up -d sonarqube); override with -Dsonar.token=... -->
+    <sonar.projectKey>finrisk-joint-project</sonar.projectKey>
+    <sonar.host.url>http://localhost:9000</sonar.host.url>
+    <sonar.sources>src/main/java,finrisk-web/src</sonar.sources>
+    <sonar.tests>src/test/java</sonar.tests>
+    <sonar.exclusions>**/node_modules/**,finrisk-web/src/generated/**,finrisk-web/stitch_finrisk_portfolio_management_api/**</sonar.exclusions>
   </properties>
 
   <dependencies>
@@ -76,6 +82,11 @@
             <exclude>**/*IT.java</exclude>
           </excludes>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.sonarsource.scanner.maven</groupId>
+        <artifactId>sonar-maven-plugin</artifactId>
+        <version>4.0.0.4121</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

@@ -41,5 +41,18 @@ services:
       # Host 18080 avoids collisions with local Spring Boot dev servers on :8080
       - "18080:8080"
 
+  # Local code quality: http://localhost:9000 (first login admin/admin, then create a user token for scans)
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: finrisk-sonarqube
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+    mem_limit: 3g
+
 volumes:
   sqlserver_data:
+  sonarqube_data:

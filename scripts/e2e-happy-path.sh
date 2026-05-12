@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# HTTP happy path used by scripts/e2e.sh.
+# Postman Flows (visual): see postman/flows/FINRISK-E2E-HAPPY-PATH.md + postman/FinRisk-E2E-Happy-Path.postman_collection.json
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:8080}"
@@ -30,7 +32,6 @@ curl -fsS "$BASE_URL/api/v1/accounts/$ACCOUNT_ID/deposit" \
 
 echo "e2e: create stock..."
 curl -fsS "$BASE_URL/api/v1/assets" \
-  -H 'Content-Type: application/json' \
   -d '{"assetType":"STOCK","symbol":"E2E","name":"E2E Corp","currentPrice":50,"sector":"Tech","exchange":"NASDAQ"}' \
   >"$tmp"
 ASSET_ID="$(jq -r '.id' "$tmp")"
