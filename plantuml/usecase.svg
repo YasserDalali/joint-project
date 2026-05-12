@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentScriptType="application/ecmascript" contentStyleType="text/css" height="718px" preserveAspectRatio="none" style="width:702px;height:718px;" version="1.1" viewBox="0 0 702 718" width="702px" zoomAndPan="magnify"><defs/><g><text fill="#000000" font-family="Arial" font-size="18" lengthAdjust="spacingAndGlyphs" textLength="233" x="246" y="19.2419">FinRisk - Investor use cases</text><!--MD5=[4e73c8d1fa02ae3452315d1c7767d862]
+cluster FinRisk API--><rect fill="#FFFFFF" height="659" style="stroke: #000000; stroke-width: 1.5;" width="282" x="409" y="48.5158"/><text fill="#000000" font-family="Arial" font-size="14" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="78" x="511" y="65.4818">FinRisk API</text><ellipse cx="549.7699" cy="112.6698" fill="#F6F9FC" rx="118.7699" ry="26.154" style="stroke: #3B6EA5; stroke-width: 1.5;"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="211" x="444.2699" y="118.7038">Register and manage own user</text><ellipse cx="550.2298" cy="197.5618" fill="#F6F9FC" rx="105.7298" ry="23.546" style="stroke: #3B6EA5; stroke-width: 1.5;"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="182" x="459.2298" y="203.5958">Create or list own accounts</text><ellipse cx="550.1966" cy="277.5552" fill="#F6F9FC" rx="95.6966" ry="21.5393" style="stroke: #3B6EA5; stroke-width: 1.5;"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="159" x="470.6966" y="283.5891">Browse available assets</text><ellipse cx="550.1041" cy="350.4989" fill="#F6F9FC" rx="63.1041" ry="16.4831" style="stroke: #3B6EA5; stroke-width: 1.5;"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="85" x="507.6041" y="356.5329">Buy an asset</text><ellipse cx="549.897" cy="418.4989" fill="#F6F9FC" rx="62.397" ry="16.4831" style="stroke: #3B6EA5; stroke-width: 1.5;"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="84" x="507.897" y="424.5329">Sell an asset</text><ellipse cx="550.1829" cy="497.4524" fill="#F6F9FC" rx="125.1829" ry="27.4366" style="stroke: #3B6EA5; stroke-width: 1.5;"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="225" x="437.6829" y="503.4864">View portfolio holdings and value</text><ellipse cx="549.9046" cy="586.3968" fill="#F6F9FC" rx="117.4046" ry="25.8809" style="stroke: #3B6EA5; stroke-width: 1.5;"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="208" x="445.9046" y="592.4307">View risk score and breakdown</text><ellipse cx="550.0556" cy="669.727" fill="#F6F9FC" rx="96.5556" ry="21.7111" style="stroke: #3B6EA5; stroke-width: 1.5;"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="161" x="469.5556" y="675.7609">View transaction history</text><!--MD5=[f9195ead6d4a7c05e2024494f14fc8cd]
+entity inv--><ellipse cx="185.5" cy="353.5158" fill="#E8F1FA" rx="8" ry="8" style="stroke: #3B6EA5; stroke-width: 1.5;"/><path d="M185.5,361.5158 L185.5,388.5158 M172.5,369.5158 L198.5,369.5158 M185.5,388.5158 L172.5,403.5158 M185.5,388.5158 L198.5,403.5158 " fill="none" style="stroke: #3B6EA5; stroke-width: 1.5;"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="55" x="158" y="420.9818">Investor</text><path d="M6,192.5158 L6,308.7519 L365,308.7519 L365,202.5158 L355,192.5158 L6,192.5158 " fill="#FFF9D6" style="stroke: #C2B96A; stroke-width: 1.0;"/><path d="M355,192.5158 L355,202.5158 L365,202.5158 L355,192.5158 " fill="#FFF9D6" style="stroke: #C2B96A; stroke-width: 1.0;"/><text fill="#000000" font-family="Arial" font-size="13" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="111" x="12" y="211.4129">What this shows.</text><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="338" x="12" y="229.1189">The Investor (the only actor today) can trigger any of the</text><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="274" x="12" y="246.8249">8 use cases (ovals) exposed by the FinRisk API.</text><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="305" x="12" y="264.5309">Each line means "the investor can use that feature".</text><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="292" x="12" y="282.2369">Use cases map roughly 1:1 to endpoint groups in</text><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="274" x="12" y="299.9429">openapi.yaml. No admin or analyst role exists.</text><!--MD5=[d8cdbcdebd32465059e56b8263bfb7a3]
+link inv to UC1--><path d="M213.01,383.6458 C252.26,380.8458 325.46,369.6258 365,325.5158 C416.25,268.3258 348.89,212.9258 401,156.5158 C412.7,143.8458 427.87,134.7658 444.03,128.2758 " fill="none" id="inv-&gt;UC1" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="449.07,126.3358,439.235,125.8131,444.3996,128.1212,442.0915,133.2857,449.07,126.3358" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[2a05b14dbcd0fe8daf55f7bf29d37b50]
+link inv to UC2--><path d="M213.3,382.5458 C251.59,378.3558 322.09,365.3958 365,325.5158 C395.65,297.0258 369.66,266.2458 401,238.5158 C415.63,225.5658 434.02,216.6758 452.81,210.5758 " fill="none" id="inv-&gt;UC2" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="457.59,209.0758,447.8077,207.9324,452.8161,210.5623,450.1861,215.5707,457.59,209.0758" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[b61605ede3c5319fd41bbc433681ac3a]
+link inv to UC3--><path d="M213.12,375.6058 C253.54,362.1958 332.9,336.2658 401,316.5158 C426.96,308.9858 455.65,301.2858 480.81,294.7358 " fill="none" id="inv-&gt;UC3" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="485.8,293.4358,476.0825,291.8325,480.9613,294.6956,478.0982,299.5744,485.8,293.4358" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[c2ff338c42cca2283c81d8461756a7b6]
+link inv to UC4--><path d="M213.16,382.0158 C270.03,376.6858 404.65,364.0558 485.12,356.5058 " fill="none" id="inv-&gt;UC4" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="490.34,356.0158,481.0026,352.8833,485.3623,356.4879,481.7578,360.8476,490.34,356.0158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[e749787b5b7e2e22383f0ed8c0d243e8]
+link inv to UC5--><path d="M213.16,387.0158 C270.11,392.3558 405.03,405.0158 485.46,412.5558 " fill="none" id="inv-&gt;UC5" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="490.68,413.0458,482.0978,408.2141,485.7023,412.5738,481.3426,416.1783,490.68,413.0458" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[66508d6843c3553167d84afede058cd7]
+link inv to UC6--><path d="M213.22,393.0958 C253.77,406.0958 333.28,431.4858 401,452.5158 C423.53,459.5158 448.03,467.0058 470.49,473.8358 " fill="none" id="inv-&gt;UC6" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="475.55,475.3658,468.1053,468.9178,470.7668,473.9095,465.7751,476.5709,475.55,475.3658" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[13e122b787873afa60dcfea5e7b7f4da]
+link inv to UC7--><path d="M213.25,409.0758 C251.97,443.4258 327.09,505.7258 401,542.5158 C420.33,552.1358 442.14,560.0558 462.97,566.4058 " fill="none" id="inv-&gt;UC7" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="467.96,567.8958,460.4977,561.4682,463.1728,566.4526,458.1885,569.1276,467.96,567.8958" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[5ddf2e9d60ccc92db67a3749817b0ab1]
+link inv to UC8--><path d="M211.22,425.4458 C246.46,480.2558 316.34,576.6958 401,629.5158 C420.31,641.5658 443.24,650.0258 465.22,655.9558 " fill="none" id="inv-&gt;UC8" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="470.18,657.2558,462.4907,651.1016,465.3439,655.9862,460.4593,658.8394,470.18,657.2558" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[ae5efcb18fb6f467ca36ddb897346870]
+@startuml usecase
+title FinRisk - Investor use cases
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam DefaultFontName Arial
+skinparam ActorBorderColor #3b6ea5
+skinparam ActorBackgroundColor #e8f1fa
+skinparam UsecaseBorderColor #3b6ea5
+skinparam UsecaseBackgroundColor #f6f9fc
+skinparam NoteBackgroundColor #fff9d6
+skinparam NoteBorderColor #c2b96a
+
+actor "Investor" as inv
+
+rectangle "FinRisk API" {
+  usecase "Register and manage own user" as UC1
+  usecase "Create or list own accounts" as UC2
+  usecase "Browse available assets"      as UC3
+  usecase "Buy an asset"                 as UC4
+  usecase "Sell an asset"                as UC5
+  usecase "View portfolio holdings and value" as UC6
+  usecase "View risk score and breakdown"     as UC7
+  usecase "View transaction history"     as UC8
+}
+
+inv - -> UC1
+inv - -> UC2
+inv - -> UC3
+inv - -> UC4
+inv - -> UC5
+inv - -> UC6
+inv - -> UC7
+inv - -> UC8
+
+note as N1
+  **What this shows.**
+  The Investor (the only actor today) can trigger any of the
+  8 use cases (ovals) exposed by the FinRisk API.
+  Each line means "the investor can use that feature".
+  Use cases map roughly 1:1 to endpoint groups in
+  openapi.yaml. No admin or analyst role exists.
+end note
+
+@enduml
+
+PlantUML version 1.2020.02(Sun Mar 01 11:22:07 WEST 2020)
+(GPL source distribution)
+Java Runtime: OpenJDK Runtime Environment
+JVM: OpenJDK 64-Bit Server VM
+Java Version: 21.0.10+7-Ubuntu-124.04
+Operating System: Linux
+Default Encoding: UTF-8
+Language: en
+Country: US
+--></g></svg>
