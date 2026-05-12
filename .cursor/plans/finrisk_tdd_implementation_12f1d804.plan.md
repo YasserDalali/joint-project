@@ -146,7 +146,7 @@ Each slice is implemented in this exact order: **unit tests -> code -> integrati
 ### Slice C - Assets (polymorphic + Factory)
 
 - Unit: `AssetFactoryTest` (input request -> correct `Stock`/`ETF`/`Bond`/`CryptoAsset`, missing subtype payload -> `IllegalArgumentException` -> 400), `AssetMapperTest` (subtype joins -> correct `oneOf` JSON shape with `assetType` discriminator), `AssetServiceTest`, `AssetControllerTest` covering `oneOf`/`discriminator` request bodies from `openapi.yaml`.
-- Code: `Asset` abstract + 4 subclasses (Template Method `calculateRiskLevel()` returns the per-type default: STOCK=HIGH, BOND=LOW, CRYPTO=VERY_HIGH, ETF=MEDIUM), `AssetFactory`, `AssetDao` + `AssetDaoJdbc` doing the multi-table read (LEFT JOIN to each `asset_details_`*).
+- Code: `Asset` abstract + 4 subclasses (Template Method `calculateRiskLevel()` returns the per-type default: STOCK=HIGH, BOND=LOW, CRYPTO=VERY_HIGH, ETF=MEDIUM), `AssetFactory`, `AssetDao` + `AssetDaoJdbc` doing the multi-table read (LEFT JOIN to each `asset_details`_*).
 - Integration: `AssetDaoJdbcIT` (round-trip per subtype), `AssetApiIT`.
 
 ### Slice D - Asset prices + history
@@ -181,7 +181,9 @@ Each slice is implemented in this exact order: **unit tests -> code -> integrati
 - Code: reads `vw_portfolio_profit_loss`.
 - Integration: `ProfitLossApiIT`.
 
-### Slice H - Risk (Strategy)
+### Security Review
+
+Slice H - Risk (Strategy)
 
 - Unit: `VolatilityRiskStrategyTest` (deterministic input price arrays -> exact stddev -> exact `RiskLevel` per the table in `[uml.md](uml.md)` section 6.5; <5 samples -> falls back to the asset's default), `RiskServiceTest` (value-weighted average, normalization to 0..100, `RiskScoreResponse` shape exactly per `openapi.yaml`).
 - Code: `RiskCalculationStrategy` interface + `VolatilityRiskStrategy` impl, `RiskService` injecting the strategy via constructor (Spring `@Bean` in `config/StrategyConfig.java`).

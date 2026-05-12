@@ -10,10 +10,11 @@ import type { components } from "./generated/api-schema";
 
 type AccountRow = components["schemas"]["AccountResponse"];
 
-function readAdminUiFlag(): boolean {
-  if (import.meta.env.VITE_ADMIN_UI === "true") return true;
+const ADMIN_UI_STORAGE_KEY = "finrisk-admin-ui";
+
+function readAdminUiFromSession(): boolean {
   try {
-    return sessionStorage.getItem("finrisk-admin-ui") === "1";
+    return sessionStorage.getItem(ADMIN_UI_STORAGE_KEY) === "1";
   } catch {
     return false;
   }
@@ -26,25 +27,16 @@ export default function App() {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAdminUi, setIsAdminUi] = useState(readAdminUiFlag);
+  const [isAdminUi, setIsAdminUi] = useState(readAdminUiFromSession);
 
-  useEffect(() => {
-    const q = new URLSearchParams(window.location.search).get("admin");
-    if (q === "1") {
-      try {
-        sessionStorage.setItem("finrisk-admin-ui", "1");
-      } catch {
-        /* ignore */
-      }
+  const persistAdminUi = useCallback((v: boolean) => {
+    try {
+      if (v) sessionStorage.setItem(ADMIN_UI_STORAGE_KEY, "1");
+      else sessionStorage.removeItem(ADMIN_UI_STORAGE_KEY);
+    } catch {
+      /* ignore */
     }
-    if (q === "0") {
-      try {
-        sessionStorage.removeItem("finrisk-admin-ui");
-      } catch {
-        /* ignore */
-      }
-    }
-    setIsAdminUi(readAdminUiFlag());
+    setIsAdminUi(v);
   }, []);
 
   const reloadAccounts = useCallback(async () => {
@@ -79,7 +71,7 @@ export default function App() {
   }, [reloadAccounts]);
 
   return (
-    <AppShell active={tab} onTab={setTab}>
+    <AppShell active={tab} onTab={setTab} isAdminUi={isAdminUi} onAdminUiChange={persistAdminUi}>
       {error ? (
         <div
           className="mx-auto mb-2 max-w-7xl px-margin-mobile pt-2 md:px-margin-desktop"

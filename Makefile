@@ -4,7 +4,7 @@
 dev:
 	docker compose up -d sqlserver
 
-# Full stack: SQL Server + API on host port 18080 (required for finrisk-web Vite proxy)
+# Full stack: SQL Server + API :18080 + static web UI :8081 (nginx proxies /api → API)
 up:
 	docker compose up -d --build
 

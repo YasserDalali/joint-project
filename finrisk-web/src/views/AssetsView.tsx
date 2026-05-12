@@ -244,8 +244,7 @@ export function AssetsView({
               <p className="font-body-md text-on-surface-variant">Registered instruments and live list prices.</p>
               {!isAdminUi ? (
                 <p className="mt-2 max-w-xl font-body-sm text-on-surface-variant">
-                  Price updates and registering assets require admin mode (<code className="font-data-mono text-xs">VITE_ADMIN_UI=true</code> or{" "}
-                  <code className="font-data-mono text-xs">?admin=1</code>).
+                  Price updates and registering assets require <strong>Admin</strong> mode — use the toggle in the header.
                 </p>
               ) : null}
             </div>

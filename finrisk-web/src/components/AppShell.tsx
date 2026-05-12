@@ -6,10 +6,14 @@ export type AppTab = "dashboard" | "assets" | "trading" | "profile";
 export function AppShell({
   active,
   onTab,
+  isAdminUi,
+  onAdminUiChange,
   children,
 }: {
   active: AppTab;
   onTab: (t: AppTab) => void;
+  isAdminUi: boolean;
+  onAdminUiChange: (v: boolean) => void;
   children: ReactNode;
 }) {
   const nav = (
@@ -40,7 +44,23 @@ export function AppShell({
           <div className="h-8 w-8 overflow-hidden rounded-full border border-outline-variant bg-surface-container-high" />
           <span className="font-headline-md text-headline-md font-bold text-on-background">FinRisk</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isAdminUi}
+            aria-label="Admin UI mode"
+            title={isAdminUi ? "Admin UI on — price overrides, asset registration, add users" : "Admin UI off — trader-safe views"}
+            onClick={() => onAdminUiChange(!isAdminUi)}
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-label-caps text-[11px] uppercase tracking-wide transition-colors ${
+              isAdminUi
+                ? "border-secondary bg-secondary/15 text-secondary"
+                : "border-outline-variant bg-surface-container-high text-on-surface-variant"
+            }`}
+          >
+            <MaterialIcon name="admin_panel_settings" className="text-base" filled={isAdminUi} />
+            <span className="max-[380px]:hidden">Admin</span>
+          </button>
           <span className="rounded-lg p-2 text-primary">
             <MaterialIcon name="account_balance_wallet" />
           </span>

@@ -8,7 +8,12 @@ export function parseApiDateTime(raw: unknown): Date | null {
     let d = new Date(s);
     if (!Number.isNaN(d.getTime())) return d;
     if (s.includes(" ") && !s.includes("T")) {
-      d = new Date(s.replace(" ", "T"));
+      // Insert T between `yyyy-MM-dd` and the time; do not replace every space (e.g. trailing ` UTC`)
+      const bridged = s.replace(/^(\d{4}-\d{2}-\d{2})\s+/, "$1T");
+      d = new Date(bridged);
+      if (!Number.isNaN(d.getTime())) return d;
+      const withoutTrailingToken = bridged.replace(/\s+\S+$/, "");
+      d = new Date(withoutTrailingToken);
       if (!Number.isNaN(d.getTime())) return d;
     }
     return null;

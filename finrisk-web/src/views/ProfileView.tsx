@@ -85,8 +85,7 @@ export function ProfileView({
         <p className="font-body-md text-on-surface-variant">Create users and browse the FinRisk directory.</p>
         {!isAdminUi ? (
           <p className="mt-2 rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3 font-body-sm text-on-surface-variant">
-            Admin-only actions (create users) are hidden. Enable with <code className="font-data-mono text-xs">VITE_ADMIN_UI=true</code> or open the app with{" "}
-            <code className="font-data-mono text-xs">?admin=1</code> once to store a session flag.
+            Admin-only actions (create users) are hidden. Turn on <strong>Admin</strong> in the header to enable them for this browser session.
           </p>
         ) : null}
       </div>

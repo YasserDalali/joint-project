@@ -41,6 +41,17 @@ services:
       # Host 18080 avoids collisions with local Spring Boot dev servers on :8080
       - "18080:8080"
 
+  finrisk-web:
+    build:
+      context: .
+      dockerfile: finrisk-web/Dockerfile
+    container_name: finrisk-web
+    depends_on:
+      finrisk-api:
+        condition: service_started
+    ports:
+      - "8081:80"
+
   # Local code quality: http://localhost:9000 (first login admin/admin, then create a user token for scans)
   sonarqube:
     image: sonarqube:lts-community

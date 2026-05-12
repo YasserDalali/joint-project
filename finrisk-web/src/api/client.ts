@@ -7,6 +7,8 @@ import type { paths } from "../generated/api-schema";
  *
  * In dev, keep `VITE_API_BASE_URL` unset: the browser calls same-origin `/api/...`
  * and Vite proxies to the Docker API on port 18080 (see vite.config.ts).
+ * With `docker compose up`, the finrisk-web container’s nginx proxies `/api/` to
+ * the API the same way, so leave `VITE_API_BASE_URL` unset there too.
  * For preview/production without a proxy, set `VITE_API_BASE_URL` to the API origin.
  */
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
