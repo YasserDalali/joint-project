@@ -32,6 +32,7 @@ curl -fsS "$BASE_URL/api/v1/accounts/$ACCOUNT_ID/deposit" \
 
 echo "e2e: create stock..."
 curl -fsS "$BASE_URL/api/v1/assets" \
+  -H 'Content-Type: application/json' \
   -d '{"assetType":"STOCK","symbol":"E2E","name":"E2E Corp","currentPrice":50,"sector":"Tech","exchange":"NASDAQ"}' \
   >"$tmp"
 ASSET_ID="$(jq -r '.id' "$tmp")"

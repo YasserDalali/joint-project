@@ -14,40 +14,46 @@ DB_NAME="${DB_NAME:-FinRiskDB}"
 
 SQLCMD=(docker exec -i "${CONTAINER}" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "${SA_PASSWORD}" -d "${DB_NAME}" -b -W)
 
-echo "Smoke: preparing deterministic ids 1 for user/account/asset..."
+echo "Smoke: clearing DB (FK-safe order, same as seed) then ids 1 for user/account/asset..."
 "${SQLCMD[@]}" -Q "
 SET NOCOUNT ON;
 BEGIN TRANSACTION;
 DELETE FROM dbo.audit_logs;
 DELETE FROM dbo.transactions;
 DELETE FROM dbo.asset_price_history;
-DELETE FROM dbo.asset_details_stock WHERE asset_id = 1;
-DELETE FROM dbo.accounts WHERE id = 1;
-DELETE FROM dbo.assets WHERE id = 1;
-DELETE FROM dbo.users WHERE id = 1;
+DELETE FROM dbo.asset_details_crypto;
+DELETE FROM dbo.asset_details_bond;
+DELETE FROM dbo.asset_details_etf;
+DELETE FROM dbo.asset_details_stock;
+DELETE FROM dbo.accounts;
+DELETE FROM dbo.assets;
+DELETE FROM dbo.users;
 COMMIT TRANSACTION;
 
 DBCC CHECKIDENT ('dbo.users', RESEED, 0);
 DBCC CHECKIDENT ('dbo.accounts', RESEED, 0);
 DBCC CHECKIDENT ('dbo.assets', RESEED, 0);
+DBCC CHECKIDENT ('dbo.transactions', RESEED, 0);
+DBCC CHECKIDENT ('dbo.asset_price_history', RESEED, 0);
+DBCC CHECKIDENT ('dbo.audit_logs', RESEED, 0);
 
 SET IDENTITY_INSERT dbo.users ON;
 INSERT INTO dbo.users (id, full_name, email, created_at)
-VALUES (1, N'Smoke User', N'smoke@finrisk.local', SYSUTCDATETIME());
+VALUES (1, 'Smoke User', 'smoke@finrisk.local', SYSUTCDATETIME());
 SET IDENTITY_INSERT dbo.users OFF;
 
 SET IDENTITY_INSERT dbo.accounts ON;
 INSERT INTO dbo.accounts (id, user_id, account_name, cash_balance, created_at)
-VALUES (1, 1, N'Smoke Account', 100000.0000, SYSUTCDATETIME());
+VALUES (1, 1, 'Smoke Account', 100000.0000, SYSUTCDATETIME());
 SET IDENTITY_INSERT dbo.accounts OFF;
 
 SET IDENTITY_INSERT dbo.assets ON;
 INSERT INTO dbo.assets (id, symbol, name, asset_type, current_price, risk_level, created_at)
-VALUES (1, N'SMK', N'Smoke Stock', N'STOCK', 200.0000, N'HIGH', SYSUTCDATETIME());
+VALUES (1, 'SMK', 'Smoke Stock', 'STOCK', 200.0000, 'HIGH', SYSUTCDATETIME());
 SET IDENTITY_INSERT dbo.assets OFF;
 
 INSERT INTO dbo.asset_details_stock (asset_id, sector, exchange_name)
-VALUES (1, N'Technology', N'NYSE');
+VALUES (1, 'Technology', 'NYSE');
 "
 
 echo "Smoke: executing sp_buy_asset..."
@@ -65,7 +71,7 @@ END
 
 IF NOT EXISTS (
   SELECT 1 FROM dbo.transactions
-  WHERE account_id = 1 AND asset_id = 1 AND transaction_type = N'BUY' AND quantity = 10
+  WHERE account_id = 1 AND asset_id = 1 AND transaction_type = 'BUY' AND quantity = 10
 )
 BEGIN
   RAISERROR('Missing BUY transaction row', 16, 1);
@@ -73,7 +79,7 @@ END
 
 IF NOT EXISTS (
   SELECT 1 FROM dbo.audit_logs
-  WHERE action_type = N'BUY_TRANSACTION_CREATED'
+  WHERE action_type = 'BUY_TRANSACTION_CREATED'
 )
 BEGIN
   RAISERROR('Missing BUY_TRANSACTION_CREATED audit row', 16, 1);

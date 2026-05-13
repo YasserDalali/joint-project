@@ -19,7 +19,10 @@
   <properties>
     <java.version>21</java.version>
     <rest-assured.version>5.5.0</rest-assured.version>
-    <!-- Local SonarQube (docker compose up -d sonarqube); override with -Dsonar.token=... -->
+    <!-- Local SonarQube: docker compose up -d sonarqube. Browsing can be anonymous;
+         analysis upload needs a token: My Account → Security → Generate token, then e.g.
+         mvn sonar:sonar -Dsonar.login=YOUR_TOKEN   (SonarQube 9.x)
+         or -Dsonar.token=YOUR_TOKEN on newer servers. User must have "Execute Analysis" on the project. -->
     <sonar.projectKey>finrisk-joint-project</sonar.projectKey>
     <sonar.host.url>http://localhost:9000</sonar.host.url>
     <sonar.sources>src/main/java,finrisk-web/src</sonar.sources>

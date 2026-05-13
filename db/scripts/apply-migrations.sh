@@ -20,7 +20,7 @@ SA_PASSWORD="${SA_PASSWORD:?SA_PASSWORD is required}"
 SQLCMD_BASE=(docker exec -i "${CONTAINER}" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "${SA_PASSWORD}")
 
 echo "Ensuring database ${DB_NAME} exists..."
-"${SQLCMD_BASE[@]}" -b -Q "IF DB_ID(N'${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];"
+"${SQLCMD_BASE[@]}" -b -Q "IF DB_ID('${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];"
 
 run_file() {
   local f="$1"
