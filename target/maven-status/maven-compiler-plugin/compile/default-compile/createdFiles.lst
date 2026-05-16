@@ -28,7 +28,6 @@ com/finrisk/service/RiskService.class
 com/finrisk/exception/InsufficientBalanceException.class
 com/finrisk/dto/response/RiskBreakdownItem.class
 com/finrisk/model/TransactionType.class
-com/finrisk/service/RiskService$1.class
 com/finrisk/dao/TransactionDao.class
 com/finrisk/model/Stock.class
 com/finrisk/service/AssetService.class
@@ -47,14 +46,12 @@ com/finrisk/dto/request/AssetCreateRequest.class
 com/finrisk/dto/response/PortfolioResponse.class
 com/finrisk/model/BuyTransaction.class
 com/finrisk/dto/response/EtfResponse.class
-com/finrisk/dao/impl/AssetDaoJdbc$1.class
 com/finrisk/dto/response/StockResponse.class
 com/finrisk/dto/response/AssetPricePoint.class
 com/finrisk/controller/AssetController.class
 com/finrisk/util/JdbcSqlExceptionMapper.class
 com/finrisk/dto/response/Page.class
 com/finrisk/factory/AssetFactory.class
-com/finrisk/factory/TransactionFactory$1.class
 com/finrisk/exception/SymbolAlreadyExistsException.class
 com/finrisk/model/Asset.class
 com/finrisk/dto/request/EtfCreateRequest.class

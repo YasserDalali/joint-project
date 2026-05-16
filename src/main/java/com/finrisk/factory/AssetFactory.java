@@ -15,97 +15,120 @@ import com.finrisk.model.Stock;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/** Factory Method helper converting polymorphic {@link com.finrisk.dto.request.AssetCreateRequest} payloads into domain assets. */
 public final class AssetFactory {
 
+    /** Blocks instantiation because creation flows use static factory methods exclusively. */
     private AssetFactory() {}
 
+    /** Materializes the correct {@link Asset} subtype prior to JDBC persistence. */
     public static Asset create(AssetCreateRequest req) {
-        return switch (req) {
-            case StockCreateRequest s -> new Stock(
+        if (req instanceof StockCreateRequest stockReq) {
+            return new Stock(
                     null,
-                    s.symbol().trim(),
-                    s.name().trim(),
-                    s.currentPrice(),
+                    stockReq.symbol().trim(),
+                    stockReq.name().trim(),
+                    stockReq.currentPrice(),
                     RiskLevel.HIGH,
                     null,
-                    s.sector(),
-                    s.exchange());
-            case EtfCreateRequest e -> new ETF(
+                    stockReq.sector(),
+                    stockReq.exchange());
+        }
+        if (req instanceof EtfCreateRequest etfReq) {
+            return new ETF(
                     null,
-                    e.symbol().trim(),
-                    e.name().trim(),
-                    e.currentPrice(),
+                    etfReq.symbol().trim(),
+                    etfReq.name().trim(),
+                    etfReq.currentPrice(),
                     RiskLevel.MEDIUM,
                     null,
-                    e.issuer(),
-                    e.expenseRatio());
-            case BondCreateRequest b -> new Bond(
+                    etfReq.issuer(),
+                    etfReq.expenseRatio());
+        }
+        if (req instanceof BondCreateRequest bondReq) {
+            return new Bond(
                     null,
-                    b.symbol().trim(),
-                    b.name().trim(),
-                    b.currentPrice(),
+                    bondReq.symbol().trim(),
+                    bondReq.name().trim(),
+                    bondReq.currentPrice(),
                     RiskLevel.LOW,
                     null,
-                    b.interestRate(),
-                    b.maturityDate(),
-                    b.issuer());
-            case CryptoCreateRequest c -> new CryptoAsset(
+                    bondReq.interestRate(),
+                    bondReq.maturityDate(),
+                    bondReq.issuer());
+        }
+        if (req instanceof CryptoCreateRequest cryptoReq) {
+            return new CryptoAsset(
                     null,
-                    c.symbol().trim(),
-                    c.name().trim(),
-                    c.currentPrice(),
+                    cryptoReq.symbol().trim(),
+                    cryptoReq.name().trim(),
+                    cryptoReq.currentPrice(),
                     RiskLevel.VERY_HIGH,
                     null,
-                    c.blockchain());
-        };
+                    cryptoReq.blockchain());
+        }
+        throw new IllegalArgumentException("Unknown asset request type: " + req.getClass().getName());
     }
 
+    /** Rebuilds an asset value object after the database assigns id/timestamps. */
     public static Asset withTimestamps(Asset a, long id, LocalDateTime createdAt) {
-        return switch (a) {
-            case Stock s -> new Stock(
+        if (a instanceof Stock stock) {
+            return new Stock(
                     id,
-                    s.symbol(),
-                    s.name(),
-                    s.currentPrice(),
-                    s.riskLevel(),
+                    stock.symbol(),
+                    stock.name(),
+                    stock.currentPrice(),
+                    stock.riskLevel(),
                     createdAt,
-                    s.sector(),
-                    s.exchange());
-            case ETF e -> new ETF(
+                    stock.sector(),
+                    stock.exchange());
+        }
+        if (a instanceof ETF etf) {
+            return new ETF(
                     id,
-                    e.symbol(),
-                    e.name(),
-                    e.currentPrice(),
-                    e.riskLevel(),
+                    etf.symbol(),
+                    etf.name(),
+                    etf.currentPrice(),
+                    etf.riskLevel(),
                     createdAt,
-                    e.issuer(),
-                    e.expenseRatio());
-            case Bond b -> new Bond(
+                    etf.issuer(),
+                    etf.expenseRatio());
+        }
+        if (a instanceof Bond bond) {
+            return new Bond(
                     id,
-                    b.symbol(),
-                    b.name(),
-                    b.currentPrice(),
-                    b.riskLevel(),
+                    bond.symbol(),
+                    bond.name(),
+                    bond.currentPrice(),
+                    bond.riskLevel(),
                     createdAt,
-                    b.interestRate(),
-                    b.maturityDate(),
-                    b.issuer());
-            case CryptoAsset c -> new CryptoAsset(
+                    bond.interestRate(),
+                    bond.maturityDate(),
+                    bond.issuer());
+        }
+        if (a instanceof CryptoAsset crypto) {
+            return new CryptoAsset(
                     id,
-                    c.symbol(),
-                    c.name(),
-                    c.currentPrice(),
-                    c.riskLevel(),
+                    crypto.symbol(),
+                    crypto.name(),
+                    crypto.currentPrice(),
+                    crypto.riskLevel(),
                     createdAt,
-                    c.blockchain());
-        };
+                    crypto.blockchain());
+        }
+        throw new IllegalArgumentException("Unknown asset type: " + a.getClass().getName());
     }
 
+    /** Reads the persisted coarse risk tier derived from domain rules. */
     public static RiskLevel persistedRisk(Asset a) {
         return a.calculateRiskLevel();
     }
 
+    /** Normalizes nullable ETF expense ratios before JDBC binding. */
     public static BigDecimal safeExpenseRatio(ETF etf) {
-        return etf.expenseRatio() == null ? BigDecimal.ZERO : etf.expenseRatio();
+        if (etf.expenseRatio() == null) {
+            return BigDecimal.ZERO;
+        }
+        return etf.expenseRatio();
     }
 }

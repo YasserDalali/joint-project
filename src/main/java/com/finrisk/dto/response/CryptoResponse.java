@@ -6,6 +6,7 @@ import com.finrisk.model.RiskLevel;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/** Crypto specialization of {@link AssetResponse} annotating the backing blockchain network. */
 public record CryptoResponse(
         long id,
         String symbol,

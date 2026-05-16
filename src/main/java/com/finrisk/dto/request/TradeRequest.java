@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 
+/** Client-submitted parameters for simulated buy/sell transactions hitting stored procedures. */
 public record TradeRequest(
         @NotNull Long accountId,
         @NotNull Long assetId,

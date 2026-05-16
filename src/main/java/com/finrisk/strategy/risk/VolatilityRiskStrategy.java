@@ -7,14 +7,17 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.List;
 
+/** Concrete Strategy estimating risk via log-return volatility with configurable sample thresholds. */
 public class VolatilityRiskStrategy implements RiskCalculationStrategy {
 
     private final int minSamples;
 
+    /** Captures how many price observations the strategy expects before trusting sigma math. */
     public VolatilityRiskStrategy(int minSamples) {
         this.minSamples = minSamples;
     }
 
+    /** Calculates sample standard deviation of log returns across consecutive prices. */
     @Override
     public double sigmaFromPrices(List<BigDecimal> chronologicalAscending) {
         if (chronologicalAscending == null || chronologicalAscending.size() < 2) {
@@ -41,6 +44,7 @@ public class VolatilityRiskStrategy implements RiskCalculationStrategy {
         return Math.sqrt(variance);
     }
 
+    /** Buckets a numeric sigma into {@link RiskLevel} via fixed instructional thresholds. */
     @Override
     public RiskLevel levelForSigma(double dailySigma) {
         if (Double.isNaN(dailySigma)) {
@@ -58,11 +62,13 @@ public class VolatilityRiskStrategy implements RiskCalculationStrategy {
         return RiskLevel.VERY_HIGH;
     }
 
+    /** Returns intrinsic asset-class risk when volatility cannot be computed. */
     @Override
     public RiskLevel fallbackLevel(Asset asset) {
         return asset.calculateRiskLevel();
     }
 
+    /** Exposes the configured minimum sample expectation for diagnostics or future guards. */
     public int minSamples() {
         return minSamples;
     }

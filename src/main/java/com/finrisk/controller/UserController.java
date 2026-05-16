@@ -17,27 +17,32 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/** REST façade exposing user onboarding and lookup endpoints backed by {@link UserService}. */
 @RestController
 @RequestMapping("/api/v1/users")
 public class UserController {
 
     private final UserService userService;
 
+    /** Injects {@link UserService}. */
     public UserController(UserService userService) {
         this.userService = userService;
     }
 
+    /** POST creating a user with validated body. */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse create(@Valid @RequestBody UserCreateRequest req) {
         return userService.createUser(req);
     }
 
+    /** Fetches a single user profile by primary key path segment. */
     @GetMapping("/{id}")
     public UserResponse get(@PathVariable long id) {
         return userService.getUser(id);
     }
 
+    /** Lists users with optional email filtering plus paging/sorting query params. */
     @GetMapping
     public Page<UserResponse> list(
             @RequestParam(defaultValue = "0") int page,

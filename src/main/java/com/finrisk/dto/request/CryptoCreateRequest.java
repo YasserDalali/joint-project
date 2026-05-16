@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
+/** Crypto onboarding payload including blockchain metadata required by analytics. */
 public record CryptoCreateRequest(
         @NotNull AssetType assetType,
         @NotBlank @Size(max = 20) String symbol,

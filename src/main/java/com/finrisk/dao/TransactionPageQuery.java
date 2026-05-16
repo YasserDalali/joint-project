@@ -5,7 +5,7 @@ import com.finrisk.model.TransactionType;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/** Parameters for {@link TransactionDao#pageForAccount(TransactionPageQuery)} (keeps arity within Sonar limits). */
+/** Immutable bundle of filters and paging knobs passed into {@link TransactionDao#pageForAccount(TransactionPageQuery)}. */
 public record TransactionPageQuery(
         long accountId,
         TransactionType type,

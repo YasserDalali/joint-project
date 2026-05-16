@@ -12,56 +12,66 @@ import com.finrisk.model.CryptoAsset;
 import com.finrisk.model.ETF;
 import com.finrisk.model.Stock;
 
+/** Converts polymorphic {@link Asset} models into Jackson-friendly {@link AssetResponse} implementations. */
 public final class AssetMapper {
 
+    /** Prevents instantiation because mapping routines are entirely static. */
     private AssetMapper() {}
 
+    /** Serializes any supported asset subtype into its matching response record with USD defaults. */
     public static AssetResponse toResponse(Asset a) {
-        return switch (a) {
-            case Stock s -> new StockResponse(
-                    s.id(),
-                    s.symbol(),
-                    s.name(),
+        if (a instanceof Stock stock) {
+            return new StockResponse(
+                    stock.id(),
+                    stock.symbol(),
+                    stock.name(),
                     AssetType.STOCK,
-                    s.currentPrice(),
+                    stock.currentPrice(),
                     "USD",
-                    s.calculateRiskLevel(),
-                    s.createdAt(),
-                    s.sector(),
-                    s.exchange());
-            case ETF e -> new EtfResponse(
-                    e.id(),
-                    e.symbol(),
-                    e.name(),
+                    stock.calculateRiskLevel(),
+                    stock.createdAt(),
+                    stock.sector(),
+                    stock.exchange());
+        }
+        if (a instanceof ETF etf) {
+            return new EtfResponse(
+                    etf.id(),
+                    etf.symbol(),
+                    etf.name(),
                     AssetType.ETF,
-                    e.currentPrice(),
+                    etf.currentPrice(),
                     "USD",
-                    e.calculateRiskLevel(),
-                    e.createdAt(),
-                    e.issuer(),
-                    e.expenseRatio());
-            case Bond b -> new BondResponse(
-                    b.id(),
-                    b.symbol(),
-                    b.name(),
+                    etf.calculateRiskLevel(),
+                    etf.createdAt(),
+                    etf.issuer(),
+                    etf.expenseRatio());
+        }
+        if (a instanceof Bond bond) {
+            return new BondResponse(
+                    bond.id(),
+                    bond.symbol(),
+                    bond.name(),
                     AssetType.BOND,
-                    b.currentPrice(),
+                    bond.currentPrice(),
                     "USD",
-                    b.calculateRiskLevel(),
-                    b.createdAt(),
-                    b.interestRate(),
-                    b.maturityDate(),
-                    b.issuer());
-            case CryptoAsset c -> new CryptoResponse(
-                    c.id(),
-                    c.symbol(),
-                    c.name(),
+                    bond.calculateRiskLevel(),
+                    bond.createdAt(),
+                    bond.interestRate(),
+                    bond.maturityDate(),
+                    bond.issuer());
+        }
+        if (a instanceof CryptoAsset crypto) {
+            return new CryptoResponse(
+                    crypto.id(),
+                    crypto.symbol(),
+                    crypto.name(),
                     AssetType.CRYPTO,
-                    c.currentPrice(),
+                    crypto.currentPrice(),
                     "USD",
-                    c.calculateRiskLevel(),
-                    c.createdAt(),
-                    c.blockchain());
-        };
+                    crypto.calculateRiskLevel(),
+                    crypto.createdAt(),
+                    crypto.blockchain());
+        }
+        throw new IllegalArgumentException("Unknown asset type: " + a.getClass().getName());
     }
 }

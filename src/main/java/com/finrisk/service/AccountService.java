@@ -16,78 +16,93 @@ import com.finrisk.util.SqlSort;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
+/** Coordinates account lifecycle operations combining {@link AccountDao} and {@link UserDao} validation. */
 @Service
 public class AccountService {
 
     private final AccountDao accountDao;
     private final UserDao userDao;
 
+    /** Wires persistence collaborators required for account workflows. */
     public AccountService(AccountDao accountDao, UserDao userDao) {
         this.accountDao = accountDao;
         this.userDao = userDao;
     }
 
+    /** Opens a brokerage account after confirming the owner {@link User} exists. */
     public AccountResponse createAccount(AccountCreateRequest req) {
         User owner = userDao.findById(req.userId());
         if (owner == null) {
             throw new UserNotFoundException("Owning user not found");
         }
-        Account a = AccountMapper.toNewAccount(req);
-        Account saved = accountDao.save(a);
+        Account account = AccountMapper.toNewAccount(req);
+        Account saved = accountDao.save(account);
         return AccountMapper.toResponse(saved);
     }
 
+    /** Fetches a single account by id throwing {@link AccountNotFoundException} if missing. */
     public AccountResponse getAccount(long id) {
-        Account a = accountDao.findById(id);
-        if (a == null) {
+        Account account = accountDao.findById(id);
+        if (account == null) {
             throw new AccountNotFoundException("Account not found");
         }
-        return AccountMapper.toResponse(a);
+        return AccountMapper.toResponse(account);
     }
 
+    /** Lists accounts for a user with pagination/sorting mirroring SQL constraints. */
     public Page<AccountResponse> listForUser(long userId, int page, int size, List<String> sort) {
-        User u = userDao.findById(userId);
-        if (u == null) {
+        User user = userDao.findById(userId);
+        if (user == null) {
             throw new UserNotFoundException("User not found");
         }
         int safeSize = Math.min(Math.max(size, 1), 100);
         int safePage = Math.max(page, 0);
-        Page<Account> p =
+        Page<Account> accountPage =
                 accountDao.pageByUserId(userId, safePage, safeSize, SqlSort.normalizeSortParams(sort));
+
+        List<AccountResponse> responses = new ArrayList<>();
+        for (Account account : accountPage.content()) {
+            responses.add(AccountMapper.toResponse(account));
+        }
+
         return new Page<>(
-                p.page(),
-                p.size(),
-                p.totalElements(),
-                p.totalPages(),
-                p.first(),
-                p.last(),
-                p.content().stream().map(AccountMapper::toResponse).toList());
+                accountPage.page(),
+                accountPage.size(),
+                accountPage.totalElements(),
+                accountPage.totalPages(),
+                accountPage.first(),
+                accountPage.last(),
+                responses);
     }
 
+    /** Credits cash to an account balance atomically at the DAO layer. */
     public AccountResponse deposit(long accountId, CashMovementRequest req) {
-        Account a = requireAccount(accountId);
-        BigDecimal next = a.cashBalance().add(req.amount());
-        accountDao.updateCashBalance(accountId, next);
-        return AccountMapper.toResponse(a.withCashBalance(next));
+        Account account = requireAccount(accountId);
+        BigDecimal nextBalance = account.cashBalance().add(req.amount());
+        accountDao.updateCashBalance(accountId, nextBalance);
+        return AccountMapper.toResponse(account.withCashBalance(nextBalance));
     }
 
+    /** Debits cash after verifying sufficient funds are available locally. */
     public AccountResponse withdraw(long accountId, CashMovementRequest req) {
-        Account a = requireAccount(accountId);
-        if (a.cashBalance().compareTo(req.amount()) < 0) {
+        Account account = requireAccount(accountId);
+        if (account.cashBalance().compareTo(req.amount()) < 0) {
             throw new InsufficientBalanceException("Insufficient cash balance");
         }
-        BigDecimal next = a.cashBalance().subtract(req.amount());
-        accountDao.updateCashBalance(accountId, next);
-        return AccountMapper.toResponse(a.withCashBalance(next));
+        BigDecimal nextBalance = account.cashBalance().subtract(req.amount());
+        accountDao.updateCashBalance(accountId, nextBalance);
+        return AccountMapper.toResponse(account.withCashBalance(nextBalance));
     }
 
+    /** Shared guard ensuring subsequent operations target a real {@link Account}. */
     private Account requireAccount(long id) {
-        Account a = accountDao.findById(id);
-        if (a == null) {
+        Account account = accountDao.findById(id);
+        if (account == null) {
             throw new AccountNotFoundException("Account not found");
         }
-        return a;
+        return account;
     }
 }

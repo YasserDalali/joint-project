@@ -2,9 +2,7 @@ package com.finrisk.dto.response;
 
 import java.util.List;
 
-/**
- * Matches {@code PageMeta} + {@code content} from {@code openapi.yaml}.
- */
+/** Generic pagination wrapper aligning REST metadata with OpenAPI {@code PageMeta} definitions. */
 public record Page<T>(
         int page,
         int size,

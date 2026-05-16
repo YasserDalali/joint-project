@@ -15,8 +15,10 @@ import com.finrisk.model.AssetType;
 import com.finrisk.util.SqlSort;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
+/** Handles catalog CRUD, price refreshes, and historical queries layered over asset DAOs. */
 @Service
 public class AssetService {
 
@@ -25,31 +27,35 @@ public class AssetService {
     private final AssetDao assetDao;
     private final AssetPriceHistoryDao assetPriceHistoryDao;
 
+    /** Supplies repositories for assets and their optional price history timeline. */
     public AssetService(AssetDao assetDao, AssetPriceHistoryDao assetPriceHistoryDao) {
         this.assetDao = assetDao;
         this.assetPriceHistoryDao = assetPriceHistoryDao;
     }
 
+    /** Persists a polymorphic asset definition plus its initial history sample. */
     public AssetResponse createAsset(AssetCreateRequest req) {
-        Asset a = AssetFactory.create(req);
-        Asset saved = assetDao.save(a);
+        Asset asset = AssetFactory.create(req);
+        Asset saved = assetDao.save(asset);
         assetPriceHistoryDao.insert(saved.id(), saved.currentPrice());
         return AssetMapper.toResponse(assetDao.findById(saved.id()));
     }
 
+    /** Retrieves one catalog asset by id mapped to {@link AssetResponse}. */
     public AssetResponse getAsset(long id) {
-        Asset a = assetDao.findById(id);
-        if (a == null) {
+        Asset asset = assetDao.findById(id);
+        if (asset == null) {
             throw new AssetNotFoundException(ASSET_NOT_FOUND);
         }
-        return AssetMapper.toResponse(a);
+        return AssetMapper.toResponse(asset);
     }
 
+    /** Applies combined filters to asset search results with pagination/sorting. */
     public Page<AssetResponse> listAssets(
             AssetType type, String symbol, String search, int page, int size, List<String> sort) {
         int safeSize = Math.min(Math.max(size, 1), 100);
         int safePage = Math.max(page, 0);
-        Page<Asset> p =
+        Page<Asset> assetPage =
                 assetDao.pageAssets(
                         type,
                         symbol,
@@ -57,16 +63,23 @@ public class AssetService {
                         safePage,
                         safeSize,
                         SqlSort.normalizeSortParams(sort));
+
+        List<AssetResponse> responses = new ArrayList<>();
+        for (Asset asset : assetPage.content()) {
+            responses.add(AssetMapper.toResponse(asset));
+        }
+
         return new Page<>(
-                p.page(),
-                p.size(),
-                p.totalElements(),
-                p.totalPages(),
-                p.first(),
-                p.last(),
-                p.content().stream().map(AssetMapper::toResponse).toList());
+                assetPage.page(),
+                assetPage.size(),
+                assetPage.totalElements(),
+                assetPage.totalPages(),
+                assetPage.first(),
+                assetPage.last(),
+                responses);
     }
 
+    /** Updates catalog pricing and logs the change into historical analytics storage. */
     public AssetResponse updatePrice(long assetId, AssetPriceUpdateRequest req) {
         Asset existing = assetDao.findById(assetId);
         if (existing == null) {
@@ -77,6 +90,7 @@ public class AssetService {
         return AssetMapper.toResponse(assetDao.findById(assetId));
     }
 
+    /** Returns paginated {@link AssetPricePoint} rows after verifying the asset exists. */
     public Page<AssetPricePoint> priceHistory(long assetId, int page, int size) {
         if (assetDao.findById(assetId) == null) {
             throw new AssetNotFoundException(ASSET_NOT_FOUND);

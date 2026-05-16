@@ -6,6 +6,7 @@ import com.finrisk.model.RiskLevel;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/** Equity-shaped {@link AssetResponse} including exchange and sector descriptors. */
 public record StockResponse(
         long id,
         String symbol,

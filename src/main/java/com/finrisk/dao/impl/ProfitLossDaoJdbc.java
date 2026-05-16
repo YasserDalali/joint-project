@@ -10,9 +10,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+/** JDBC implementation reading profit snapshots from {@code dbo.vw_portfolio_profit_loss}. */
 @Repository
 public class ProfitLossDaoJdbc implements ProfitLossDao {
 
+    /** Retrieves computed profit metrics per holding for a brokerage account. */
     @Override
     public List<HoldingProfitLoss> holdings(long accountId) {
         return Db.findMany(
@@ -22,10 +24,11 @@ public class ProfitLossDaoJdbc implements ProfitLossDao {
                 WHERE account_id = ?
                 ORDER BY symbol
                 """,
-                ProfitLossDaoJdbc::mapRow,
+                rs -> mapRow(rs),
                 accountId);
     }
 
+    /** Builds {@link HoldingProfitLoss} records including compact-constructor USD defaults. */
     private static HoldingProfitLoss mapRow(ResultSet rs) throws SQLException {
         BigDecimal pct = rs.getBigDecimal("profit_loss_percent");
         return new HoldingProfitLoss(

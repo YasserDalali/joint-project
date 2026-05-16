@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
+/** ETF-specific creation fields extending the shared asset contract. */
 public record EtfCreateRequest(
         @NotNull AssetType assetType,
         @NotBlank @Size(max = 20) String symbol,

@@ -6,16 +6,22 @@ import com.finrisk.model.SellTransaction;
 import com.finrisk.model.Transaction;
 import com.finrisk.model.TransactionType;
 
+/** Factory Method wrapper producing buy/sell {@link Transaction} shells before persistence timestamps arrive. */
 public final class TransactionFactory {
 
+    /** Prevents external instantiation of this static helper. */
     private TransactionFactory() {}
 
+    /** Converts a validated {@link TradeRequest} into the proper transaction subtype. */
     public static Transaction create(TradeRequest req, TransactionType type) {
-        return switch (type) {
-            case BUY -> new BuyTransaction(
+        if (type == TransactionType.BUY) {
+            return new BuyTransaction(
                     null, req.accountId(), req.assetId(), req.quantity(), req.unitPrice(), null);
-            case SELL -> new SellTransaction(
+        }
+        if (type == TransactionType.SELL) {
+            return new SellTransaction(
                     null, req.accountId(), req.assetId(), req.quantity(), req.unitPrice(), null);
-        };
+        }
+        throw new IllegalArgumentException("Unknown transaction type: " + type);
     }
 }

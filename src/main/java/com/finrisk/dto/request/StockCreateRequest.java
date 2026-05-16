@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
+/** Stock-specific asset registration payload with exchange identifiers. */
 public record StockCreateRequest(
         @NotNull AssetType assetType,
         @NotBlank @Size(max = 20) String symbol,

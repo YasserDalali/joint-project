@@ -12,9 +12,11 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 
+/** JDBC {@link PortfolioDao} sourcing projections from accounts plus portfolio views. */
 @Repository
 public class PortfolioDaoJdbc implements PortfolioDao {
 
+    /** Reads liquid cash for an account when the row exists. */
     @Override
     public Optional<BigDecimal> cashBalance(long accountId) {
         return Db.findOne(
@@ -25,6 +27,7 @@ public class PortfolioDaoJdbc implements PortfolioDao {
                 accountId);
     }
 
+    /** Lists holdings derived from {@code dbo.vw_portfolio_holdings} for an account id. */
     @Override
     public List<Holding> holdings(long accountId) {
         return Db.findMany(
@@ -34,10 +37,11 @@ public class PortfolioDaoJdbc implements PortfolioDao {
                 WHERE account_id = ?
                 ORDER BY symbol
                 """,
-                PortfolioDaoJdbc::mapHolding,
+                rs -> mapHolding(rs),
                 accountId);
     }
 
+    /** Converts view columns into {@link Holding} DTOs including USD convenience overload usage. */
     private static Holding mapHolding(ResultSet rs) throws SQLException {
         return new Holding(
                 rs.getLong("asset_id"),

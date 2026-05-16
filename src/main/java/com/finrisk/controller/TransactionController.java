@@ -21,28 +21,33 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/** Handles trade submissions and paginated ledger reads for brokerage accounts. */
 @RestController
 @RequestMapping("/api/v1")
 public class TransactionController {
 
     private final TransactionService transactionService;
 
+    /** Provides {@link TransactionService} orchestrating stored procedure execution. */
     public TransactionController(TransactionService transactionService) {
         this.transactionService = transactionService;
     }
 
+    /** Accepts JSON describing a buy trade and returns confirmation payload. */
     @PostMapping("/transactions/buy")
     @ResponseStatus(HttpStatus.CREATED)
     public TransactionResponse buy(@Valid @RequestBody TradeRequest req) {
         return transactionService.buy(req);
     }
 
+    /** Mirrors {@link #buy(TradeRequest)} for sells using identical validation pipeline. */
     @PostMapping("/transactions/sell")
     @ResponseStatus(HttpStatus.CREATED)
     public TransactionResponse sell(@Valid @RequestBody TradeRequest req) {
         return transactionService.sell(req);
     }
 
+    /** Lists historical trades for an account with optional filters encoded as query params. */
     @GetMapping("/accounts/{accountId}/transactions")
     public Page<TransactionResponse> list(
             @PathVariable long accountId,

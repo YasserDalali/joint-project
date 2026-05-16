@@ -6,6 +6,7 @@ import com.finrisk.model.RiskLevel;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/** ETF specialization of {@link AssetResponse} exposing issuer and expense ratio fields. */
 public record EtfResponse(
         long id,
         String symbol,

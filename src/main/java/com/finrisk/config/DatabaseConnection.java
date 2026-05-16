@@ -8,24 +8,24 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * Singleton JDBC pool — raw connections for DAO layer (see {@code uml.md} §6.5).
- */
+/** Holds a single shared HikariCP {@link DataSource} so every DAO borrows connections from one pool. */
 public final class DatabaseConnection {
 
     private static final AtomicReference<DataSource> INSTANCE = new AtomicReference<>();
 
+    /** Prevents accidental instantiation of this static helper class. */
     private DatabaseConnection() {}
 
+    /** Lazily creates and returns the application-wide JDBC {@link DataSource}. */
     public static DataSource getDataSource() {
-        DataSource cur = INSTANCE.get();
-        if (cur != null) {
-            return cur;
+        DataSource current = INSTANCE.get();
+        if (current != null) {
+            return current;
         }
         synchronized (DatabaseConnection.class) {
-            cur = INSTANCE.get();
-            if (cur != null) {
-                return cur;
+            current = INSTANCE.get();
+            if (current != null) {
+                return current;
             }
             HikariDataSource created = buildHikariDataSource();
             INSTANCE.set(created);
@@ -33,20 +33,22 @@ public final class DatabaseConnection {
         }
     }
 
+    /** Borrows a live JDBC {@link Connection} from the shared pool. */
     public static Connection getConnection() throws SQLException {
         return getDataSource().getConnection();
     }
 
-    /** Visible for integration tests that replace the pool. */
+    /** Closes the pooled datasource and clears it so the next call rebuilds configuration. */
     public static void resetForTests() {
         synchronized (DatabaseConnection.class) {
-            DataSource ds = INSTANCE.getAndSet(null);
-            if (ds instanceof HikariDataSource hd) {
-                hd.close();
+            DataSource dataSource = INSTANCE.getAndSet(null);
+            if (dataSource instanceof HikariDataSource hikari) {
+                hikari.close();
             }
         }
     }
 
+    /** Builds a {@link HikariDataSource} pointed at SQL Server using environment properties. */
     private static HikariDataSource buildHikariDataSource() {
         String host = env("DB_HOST", "localhost");
         String port = env("DB_PORT", "1433");
@@ -58,21 +60,25 @@ public final class DatabaseConnection {
                 "jdbc:sqlserver://" + host + ":" + port + ";databaseName=" + database
                         + ";encrypt=true;trustServerCertificate=true";
 
-        HikariConfig cfg = new HikariConfig();
-        cfg.setJdbcUrl(jdbcUrl);
-        cfg.setUsername(user);
-        cfg.setPassword(password);
-        cfg.setMaximumPoolSize(10);
-        cfg.setPoolName("finrisk-hikari");
-        return new HikariDataSource(cfg);
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl(jdbcUrl);
+        config.setUsername(user);
+        config.setPassword(password);
+        config.setMaximumPoolSize(10);
+        config.setPoolName("finrisk-hikari");
+        return new HikariDataSource(config);
     }
 
+    /** Reads a configuration value from the OS environment with JVM system-property fallback. */
     private static String env(String key, String defaultValue) {
-        String v = System.getenv(key);
-        if (v != null && !v.isEmpty()) {
-            return v;
+        String value = System.getenv(key);
+        if (value != null && !value.isEmpty()) {
+            return value;
         }
-        v = System.getProperty(key);
-        return v != null && !v.isEmpty() ? v : defaultValue;
+        value = System.getProperty(key);
+        if (value != null && !value.isEmpty()) {
+            return value;
+        }
+        return defaultValue;
     }
 }

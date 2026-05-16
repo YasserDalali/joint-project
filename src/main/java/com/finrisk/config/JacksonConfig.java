@@ -7,9 +7,11 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/** Registers Jackson JSON settings shared by every REST controller response and request body. */
 @Configuration
 public class JacksonConfig {
 
+    /** Supplies the Spring-managed {@link ObjectMapper} used for HTTP JSON conversion. */
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();

@@ -21,11 +21,14 @@ import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+/** JDBC DAO hydrating polymorphic {@link Asset} records joined across subtype detail tables. */
 @Repository
 public class AssetDaoJdbc implements AssetDao {
 
@@ -50,10 +53,12 @@ public class AssetDaoJdbc implements AssetDao {
             VALUES (?, ?, ?, ?, ?, SYSUTCDATETIME())
             """;
 
+    /** Recognizes duplicate symbol violations raised by SQL Server unique indexes. */
     private static boolean isUniqueViolation(SQLException e) {
         return "23000".equals(e.getSQLState()) || e.getErrorCode() == 2627 || e.getErrorCode() == 2601;
     }
 
+    /** Converts joined catalog/detail columns into the proper sealed {@link Asset} implementation. */
     private static Asset mapAsset(ResultSet rs) throws SQLException {
         AssetType type = AssetType.valueOf(rs.getString("asset_type"));
         RiskLevel persisted = RiskLevel.valueOf(rs.getString("risk_level"));
@@ -63,8 +68,8 @@ public class AssetDaoJdbc implements AssetDao {
         String symbol = rs.getString("symbol");
         String name = rs.getString("name");
         BigDecimal price = rs.getBigDecimal("current_price");
-        return switch (type) {
-            case STOCK -> new Stock(
+        if (type == AssetType.STOCK) {
+            return new Stock(
                     id,
                     symbol,
                     name,
@@ -73,7 +78,9 @@ public class AssetDaoJdbc implements AssetDao {
                     createdAt,
                     rs.getString("sector"),
                     rs.getString("exchange_name"));
-            case ETF -> new ETF(
+        }
+        if (type == AssetType.ETF) {
+            return new ETF(
                     id,
                     symbol,
                     name,
@@ -82,34 +89,46 @@ public class AssetDaoJdbc implements AssetDao {
                     createdAt,
                     rs.getString("issuer"),
                     rs.getBigDecimal("expense_ratio"));
-            case BOND -> {
-                Date md = rs.getDate("maturity_date");
-                yield new Bond(
-                        id,
-                        symbol,
-                        name,
-                        price,
-                        persisted,
-                        createdAt,
-                        rs.getBigDecimal("interest_rate"),
-                        md == null ? null : md.toLocalDate(),
-                        rs.getString("bond_issuer"));
-            }
-            case CRYPTO -> new CryptoAsset(
+        }
+        if (type == AssetType.BOND) {
+            Date maturityDate = rs.getDate("maturity_date");
+            LocalDate maturity =
+                    maturityDate == null ? null : maturityDate.toLocalDate();
+            return new Bond(
+                    id,
+                    symbol,
+                    name,
+                    price,
+                    persisted,
+                    createdAt,
+                    rs.getBigDecimal("interest_rate"),
+                    maturity,
+                    rs.getString("bond_issuer"));
+        }
+        if (type == AssetType.CRYPTO) {
+            return new CryptoAsset(
                     id, symbol, name, price, persisted, createdAt, rs.getString("blockchain"));
-        };
+        }
+        throw new IllegalStateException("Unknown asset type: " + type);
     }
 
+    /** Loads one asset graph including subtype-specific columns by numeric id. */
     @Override
     public Asset findById(Long id) {
-        return Db.findOne(SELECT_BASE + " WHERE a.id = ?", AssetDaoJdbc::mapAsset, id).orElse(null);
+        Optional<Asset> found = Db.findOne(SELECT_BASE + " WHERE a.id = ?", rs -> mapAsset(rs), id);
+        if (found.isPresent()) {
+            return found.get();
+        }
+        return null;
     }
 
+    /** Retrieves every instrument ordered by ascending asset id. */
     @Override
     public List<Asset> findAll() {
-        return Db.findMany(SELECT_BASE + " ORDER BY a.id", AssetDaoJdbc::mapAsset);
+        return Db.findMany(SELECT_BASE + " ORDER BY a.id", rs -> mapAsset(rs));
     }
 
+    /** Inserts master/detail asset rows transactionally using {@link Db#inTx}. */
     @Override
     public Asset save(Asset entity) {
         RiskLevel persisted = AssetFactory.persistedRisk(entity);
@@ -142,60 +161,70 @@ public class AssetDaoJdbc implements AssetDao {
                         return AssetFactory.withTimestamps(entity, assetId, created);
                     });
         } catch (DaoException e) {
-            if (e.getCause() instanceof SQLException sql && isUniqueViolation(sql)) {
+            if (e.getCause() instanceof SQLException sqlException && isUniqueViolation(sqlException)) {
                 throw new SymbolAlreadyExistsException("Symbol already exists");
             }
             throw e;
         }
     }
 
-    private static void insertDetails(java.sql.Connection c, Asset asset) {
-        switch (asset) {
-            case Stock s ->
-                    Db.exec(
-                            c,
-                            """
-                            INSERT INTO dbo.asset_details_stock (asset_id, sector, exchange_name) VALUES (?,?,?)
-                            """,
-                            s.id(),
-                            s.sector(),
-                            s.exchange());
-            case ETF e ->
-                    Db.exec(
-                            c,
-                            """
-                            INSERT INTO dbo.asset_details_etf (asset_id, issuer, expense_ratio) VALUES (?,?,?)
-                            """,
-                            e.id(),
-                            e.issuer(),
-                            e.expenseRatio() == null ? Db.SqlNull.DECIMAL : e.expenseRatio());
-            case Bond b ->
-                    Db.exec(
-                            c,
-                            """
-                            INSERT INTO dbo.asset_details_bond (asset_id, interest_rate, maturity_date, issuer) VALUES (?,?,?,?)
-                            """,
-                            b.id(),
-                            b.interestRate(),
-                            b.maturityDate(),
-                            b.issuer());
-            case CryptoAsset cr ->
-                    Db.exec(
-                            c,
-                            """
-                            INSERT INTO dbo.asset_details_crypto (asset_id, blockchain) VALUES (?,?)
-                            """,
-                            cr.id(),
-                            cr.blockchain());
-            default -> throw new IllegalStateException("Unsupported asset type");
+    /** Persists subtype-specific columns immediately after the shared asset row exists. */
+    private static void insertDetails(java.sql.Connection connection, Asset asset) {
+        if (asset instanceof Stock stock) {
+            Db.exec(
+                    connection,
+                    """
+                    INSERT INTO dbo.asset_details_stock (asset_id, sector, exchange_name) VALUES (?,?,?)
+                    """,
+                    stock.id(),
+                    stock.sector(),
+                    stock.exchange());
+            return;
         }
+        if (asset instanceof ETF etf) {
+            Object expenseRatio = etf.expenseRatio() == null ? Db.SqlNull.DECIMAL : etf.expenseRatio();
+            Db.exec(
+                    connection,
+                    """
+                    INSERT INTO dbo.asset_details_etf (asset_id, issuer, expense_ratio) VALUES (?,?,?)
+                    """,
+                    etf.id(),
+                    etf.issuer(),
+                    expenseRatio);
+            return;
+        }
+        if (asset instanceof Bond bond) {
+            Db.exec(
+                    connection,
+                    """
+                    INSERT INTO dbo.asset_details_bond (asset_id, interest_rate, maturity_date, issuer) VALUES (?,?,?,?)
+                    """,
+                    bond.id(),
+                    bond.interestRate(),
+                    bond.maturityDate(),
+                    bond.issuer());
+            return;
+        }
+        if (asset instanceof CryptoAsset crypto) {
+            Db.exec(
+                    connection,
+                    """
+                    INSERT INTO dbo.asset_details_crypto (asset_id, blockchain) VALUES (?,?)
+                    """,
+                    crypto.id(),
+                    crypto.blockchain());
+            return;
+        }
+        throw new IllegalStateException("Unsupported asset type: " + asset.getClass().getName());
     }
 
+    /** Explicitly unsupported because partial updates require dedicated APIs. */
     @Override
     public void update(Asset entity) {
         throw new UnsupportedOperationException("Use updateCurrentPrice or domain-specific updates");
     }
 
+    /** Deletes an asset row cascading dependent rows per database rules. */
     @Override
     public void delete(Long id) {
         Db.exec(
@@ -205,21 +234,28 @@ public class AssetDaoJdbc implements AssetDao {
                 id);
     }
 
+    /** Finds an asset using case-insensitive symbol equality across joined tables. */
     @Override
     public Asset findBySymbolIgnoreCase(String symbol) {
-        return Db.findOne(
+        Optional<Asset> found =
+                Db.findOne(
                         SELECT_BASE + " WHERE LOWER(a.symbol) = LOWER(?)",
-                        AssetDaoJdbc::mapAsset,
-                        symbol.trim())
-                .orElse(null);
+                        rs -> mapAsset(rs),
+                        symbol.trim());
+        if (found.isPresent()) {
+            return found.get();
+        }
+        return null;
     }
 
+    /** Lists assets filtered by coarse {@link AssetType}. */
     @Override
     public List<Asset> findByType(AssetType type) {
         return Db.findMany(
-                SELECT_BASE + " WHERE a.asset_type = ? ORDER BY a.id", AssetDaoJdbc::mapAsset, type.name());
+                SELECT_BASE + " WHERE a.asset_type = ? ORDER BY a.id", rs -> mapAsset(rs), type.name());
     }
 
+    /** Applies stacked filters (type, symbol exact match, fuzzy name) with safe sorting + paging. */
     @Override
     public Page<Asset> pageAssets(
             AssetType type,
@@ -250,7 +286,7 @@ public class AssetDaoJdbc implements AssetDao {
         return Db.findPage(
                 countSql,
                 dataSql,
-                AssetDaoJdbc::mapAsset,
+                rs -> mapAsset(rs),
                 page,
                 size,
                 ps -> bindAssetFilters(ps, params),
@@ -261,6 +297,7 @@ public class AssetDaoJdbc implements AssetDao {
                 });
     }
 
+    /** Binds dynamic WHERE parameters built during {@link #pageAssets} assembly. */
     private static int bindAssetFilters(java.sql.PreparedStatement ps, Map<String, Object> params)
             throws SQLException {
         int idx = 1;
@@ -276,10 +313,12 @@ public class AssetDaoJdbc implements AssetDao {
         return idx;
     }
 
+    /** Escapes substring search inputs destined for T-SQL LIKE expressions with ESCAPE {@code \\}. */
     private static String escapeLike(String raw) {
         return raw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
+    /** Updates only {@code current_price} on the master assets row. */
     @Override
     public void updateCurrentPrice(long assetId, BigDecimal newPrice) {
         Db.update(

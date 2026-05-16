@@ -17,6 +17,10 @@ import com.finrisk.model.TransactionType;
 import com.finrisk.util.SqlSort;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
+
+/** Executes trades via stored procedures and shapes ledger listings for REST responses. */
 @Service
 public class TransactionService {
 
@@ -26,12 +30,14 @@ public class TransactionService {
     private final AssetDao assetDao;
     private final TransactionDao transactionDao;
 
+    /** Injects DAO dependencies covering accounts, assets, and ledger persistence. */
     public TransactionService(AccountDao accountDao, AssetDao assetDao, TransactionDao transactionDao) {
         this.accountDao = accountDao;
         this.assetDao = assetDao;
         this.transactionDao = transactionDao;
     }
 
+    /** Runs the buy stored procedure after verifying references exist. */
     public TransactionResponse buy(TradeRequest req) {
         requireAccount(req.accountId());
         requireAsset(req.assetId());
@@ -40,6 +46,7 @@ public class TransactionService {
         return loadResponse(req, TransactionType.BUY);
     }
 
+    /** Mirrors {@link #buy(TradeRequest)} for liquidation flows using the sell procedure. */
     public TransactionResponse sell(TradeRequest req) {
         requireAccount(req.accountId());
         requireAsset(req.assetId());
@@ -48,31 +55,35 @@ public class TransactionService {
         return loadResponse(req, TransactionType.SELL);
     }
 
+    /** Reads the freshly inserted transaction plus symbol for mapper consumption. */
     private TransactionResponse loadResponse(TradeRequest req, TransactionType type) {
-        Transaction t = transactionDao.findLatest(req.accountId(), req.assetId(), type);
-        String sym = transactionDao.findSymbol(req.assetId());
-        return TransactionMapper.toResponse(t, sym);
+        Transaction transaction = transactionDao.findLatest(req.accountId(), req.assetId(), type);
+        String symbol = transactionDao.findSymbol(req.assetId());
+        return TransactionMapper.toResponse(transaction, symbol);
     }
 
+    /** Ensures an account id resolves before sensitive trading operations proceed. */
     private void requireAccount(long id) {
-        Account a = accountDao.findById(id);
-        if (a == null) {
+        Account account = accountDao.findById(id);
+        if (account == null) {
             throw new AccountNotFoundException("Account not found");
         }
     }
 
+    /** Ensures an asset id resolves prior to executing trades. */
     private void requireAsset(long id) {
-        Asset a = assetDao.findById(id);
-        if (a == null) {
+        Asset asset = assetDao.findById(id);
+        if (asset == null) {
             throw new AssetNotFoundException(ASSET_NOT_FOUND);
         }
     }
 
+    /** Paginates transactions for an account using sanitized filters/sorts. */
     public Page<TransactionResponse> listForAccount(TransactionPageQuery query) {
         requireAccount(query.accountId());
         int safeSize = Math.min(Math.max(query.size(), 1), 100);
         int safePage = Math.max(query.page(), 0);
-        Page<Transaction> p =
+        Page<Transaction> transactionPage =
                 transactionDao.pageForAccount(
                         new TransactionPageQuery(
                                 query.accountId(),
@@ -83,18 +94,20 @@ public class TransactionService {
                                 safePage,
                                 safeSize,
                                 SqlSort.normalizeSortParams(query.sortSpecs())));
+
+        List<TransactionResponse> responses = new ArrayList<>();
+        for (Transaction transaction : transactionPage.content()) {
+            String symbol = transactionDao.findSymbol(transaction.assetId());
+            responses.add(TransactionMapper.toResponse(transaction, symbol));
+        }
+
         return new Page<>(
-                p.page(),
-                p.size(),
-                p.totalElements(),
-                p.totalPages(),
-                p.first(),
-                p.last(),
-                p.content().stream()
-                        .map(
-                                tr ->
-                                        TransactionMapper.toResponse(
-                                                tr, transactionDao.findSymbol(tr.assetId())))
-                        .toList());
+                transactionPage.page(),
+                transactionPage.size(),
+                transactionPage.totalElements(),
+                transactionPage.totalPages(),
+                transactionPage.first(),
+                transactionPage.last(),
+                responses);
     }
 }

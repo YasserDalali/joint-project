@@ -1,18 +1,21 @@
 package com.finrisk.util;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Whitelisted ORDER BY builder for JDBC queries. */
+/** Builds safe SQL {@code ORDER BY} fragments from user input using an allow-list (whitelist). */
 public final class SqlSort {
 
     private static final String SORT_ASC = "asc";
     private static final String SORT_DESC = "desc";
 
+    /** Hides the default constructor so this class can only be used via static helpers. */
     private SqlSort() {}
 
+    /** Turns a list of sort strings into a comma-separated {@code ORDER BY} clause. */
     public static String orderByClause(List<String> sortSpecs, Map<String, String> whitelist, String defaultExpr) {
         if (sortSpecs == null || sortSpecs.isEmpty()) {
             return defaultExpr;
@@ -21,9 +24,13 @@ public final class SqlSort {
         for (String spec : sortSpecs) {
             appendOneSort(sb, spec, whitelist);
         }
-        return sb.isEmpty() ? defaultExpr : sb.toString();
+        if (sb.isEmpty()) {
+            return defaultExpr;
+        }
+        return sb.toString();
     }
 
+    /** Appends one validated sort fragment to a growing {@code ORDER BY} string. */
     private static void appendOneSort(StringBuilder sb, String spec, Map<String, String> whitelist) {
         if (spec == null || spec.isBlank()) {
             return;
@@ -44,46 +51,56 @@ public final class SqlSort {
         sb.append(column).append(" ").append(dir.toUpperCase(Locale.ROOT));
     }
 
+    /** Returns the allow-list mapping API sort keys to real {@code users} table columns. */
     public static Map<String, String> usersWhitelist() {
-        Map<String, String> m = new LinkedHashMap<>();
-        m.put("id", "id");
-        m.put("email", "email");
-        m.put("fullname", "full_name");
-        m.put("createdat", "created_at");
-        return m;
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("id", "id");
+        map.put("email", "email");
+        map.put("fullname", "full_name");
+        map.put("createdat", "created_at");
+        return map;
     }
 
+    /** Returns the allow-list mapping for sorting brokerage accounts. */
     public static Map<String, String> accountsWhitelist() {
-        Map<String, String> m = new LinkedHashMap<>();
-        m.put("id", "id");
-        m.put("accountname", "account_name");
-        m.put("cashbalance", "cash_balance");
-        m.put("createdat", "created_at");
-        return m;
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("id", "id");
+        map.put("accountname", "account_name");
+        map.put("cashbalance", "cash_balance");
+        map.put("createdat", "created_at");
+        return map;
     }
 
+    /** Returns the allow-list mapping for sorting tradable assets. */
     public static Map<String, String> assetsWhitelist() {
-        Map<String, String> m = new LinkedHashMap<>();
-        m.put("id", "id");
-        m.put("symbol", "symbol");
-        m.put("name", "name");
-        m.put("createdat", "created_at");
-        return m;
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("id", "id");
+        map.put("symbol", "symbol");
+        map.put("name", "name");
+        map.put("createdat", "created_at");
+        return map;
     }
 
+    /** Returns the allow-list mapping for sorting ledger transactions. */
     public static Map<String, String> transactionsWhitelist() {
-        Map<String, String> m = new LinkedHashMap<>();
-        m.put("id", "id");
-        m.put("transactiondate", "transaction_date");
-        m.put("quantity", "quantity");
-        return m;
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("id", "id");
+        map.put("transactiondate", "transaction_date");
+        map.put("quantity", "quantity");
+        return map;
     }
 
-    /** Spring passes sort as repeated params -> RestAssured sends sort=a&sort=b */
+    /** Cleans repeated HTTP {@code sort} query parameters into a plain list of tokens. */
     public static List<String> normalizeSortParams(List<String> raw) {
         if (raw == null || raw.isEmpty()) {
             return List.of();
         }
-        return raw.stream().filter(s -> s != null && !s.isBlank()).toList();
+        List<String> cleaned = new ArrayList<>();
+        for (String value : raw) {
+            if (value != null && !value.isBlank()) {
+                cleaned.add(value);
+            }
+        }
+        return cleaned;
     }
 }

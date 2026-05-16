@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/** JDBC-backed {@link UserDao} translating rows in {@code dbo.users} into immutable {@link User} records. */
 @Repository
 public class UserDaoJdbc implements UserDao {
 
@@ -49,8 +50,9 @@ public class UserDaoJdbc implements UserDao {
             SELECT id, full_name, email, created_at FROM dbo.users WHERE email = ?
             """;
 
-    private static User map(ResultSet rs) throws SQLException {
-        var ts = rs.getTimestamp("created_at");
+    /** Converts one JDBC {@link ResultSet} row into a {@link User} value object. */
+    private static User mapRow(ResultSet rs) throws SQLException {
+        Timestamp ts = rs.getTimestamp("created_at");
         return new User(
                 rs.getLong("id"),
                 rs.getString("full_name"),
@@ -58,20 +60,28 @@ public class UserDaoJdbc implements UserDao {
                 ts == null ? null : ts.toLocalDateTime());
     }
 
+    /** Detects SQL Server unique constraint violations based on state/error codes. */
     private static boolean isUniqueViolation(SQLException e) {
         return "23000".equals(e.getSQLState()) || e.getErrorCode() == 2627 || e.getErrorCode() == 2601;
     }
 
+    /** Loads a user by numeric primary key returning {@code null} when absent (DAO convention). */
     @Override
     public User findById(Long id) {
-        return Db.findOne(FIND_BY_ID, UserDaoJdbc::map, id).orElse(null);
+        Optional<User> found = Db.findOne(FIND_BY_ID, rs -> mapRow(rs), id);
+        if (found.isPresent()) {
+            return found.get();
+        }
+        return null;
     }
 
+    /** Retrieves every user ordered by id for administrative dumps. */
     @Override
     public List<User> findAll() {
-        return Db.findMany(FIND_ALL, UserDaoJdbc::map);
+        return Db.findMany(FIND_ALL, rs -> mapRow(rs));
     }
 
+    /** Inserts a user row and reconstructs the entity including generated keys/timestamps. */
     @Override
     public User save(User entity) {
         try {
@@ -94,35 +104,39 @@ public class UserDaoJdbc implements UserDao {
                             .orElse(null);
             return new User(id, entity.fullName(), entity.email(), created);
         } catch (DaoException e) {
-            if (e.getCause() instanceof SQLException sql && isUniqueViolation(sql)) {
+            if (e.getCause() instanceof SQLException sqlException && isUniqueViolation(sqlException)) {
                 throw new EmailAlreadyExistsException("Email already in use");
             }
             throw e;
         }
     }
 
+    /** Updates mutable columns on an existing user record. */
     @Override
     public void update(User entity) {
         try {
             Db.update(UPDATE_USER, entity.fullName(), entity.email(), entity.id());
         } catch (DaoException e) {
-            if (e.getCause() instanceof SQLException sql && isUniqueViolation(sql)) {
+            if (e.getCause() instanceof SQLException sqlException && isUniqueViolation(sqlException)) {
                 throw new EmailAlreadyExistsException("Email already in use");
             }
             throw e;
         }
     }
 
+    /** Deletes the specified user row when foreign keys permit removal. */
     @Override
     public void delete(Long id) {
         Db.exec(DELETE_USER, id);
     }
 
+    /** Looks up a user by normalized email address. */
     @Override
     public Optional<User> findByEmail(String email) {
-        return Db.findOne(FIND_BY_EMAIL, UserDaoJdbc::map, email.trim().toLowerCase());
+        return Db.findOne(FIND_BY_EMAIL, rs -> mapRow(rs), email.trim().toLowerCase());
     }
 
+    /** Applies LIKE-filtered pagination with ORDER BY fragments derived from {@link SqlSort}. */
     @Override
     public Page<User> pageUsers(String emailPrefix, int page, int size, List<String> sortSpecs) {
         String order =
@@ -141,7 +155,7 @@ public class UserDaoJdbc implements UserDao {
         return Db.findPage(
                 countSql,
                 dataSql,
-                UserDaoJdbc::map,
+                rs -> mapRow(rs),
                 page,
                 size,
                 ps -> {
@@ -160,6 +174,7 @@ public class UserDaoJdbc implements UserDao {
                 });
     }
 
+    /** Escapes LIKE wildcard characters before embedding user-provided prefixes into SQL patterns. */
     private static String escapeLike(String raw) {
         return raw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }

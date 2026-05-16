@@ -4,6 +4,7 @@ import com.finrisk.model.AssetType;
 
 import java.math.BigDecimal;
 
+/** Describes one line item inside {@link PortfolioResponse} holdings arrays. */
 public record Holding(
         long assetId,
         String symbol,
@@ -14,6 +15,7 @@ public record Holding(
         BigDecimal currentValue,
         String currency) {
 
+    /** Adds USD labeling automatically when domain services only supply numeric valuations. */
     public Holding(
             long assetId,
             String symbol,

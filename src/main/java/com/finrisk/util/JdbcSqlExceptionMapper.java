@@ -7,10 +7,13 @@ import com.finrisk.exception.InsufficientQuantityException;
 
 import java.sql.SQLException;
 
+/** Translates database error text from stored procedures into typed Java exceptions the API can handle. */
 public final class JdbcSqlExceptionMapper {
 
+    /** Blocks creation of mapper instances because every method here is static. */
     private JdbcSqlExceptionMapper() {}
 
+    /** Converts a SQL exception message into a domain exception when it matches a known tag. */
     public static RuntimeException map(SQLException ex) {
         String msg = ex.getMessage() == null ? "" : ex.getMessage();
         // RAISERROR strings from dbo.sp_buy_asset / dbo.sp_sell_asset

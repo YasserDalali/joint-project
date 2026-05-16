@@ -19,12 +19,15 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+/** JDBC {@link TransactionDao} bridging ledger rows and SQL stored procedures for trades. */
 @Repository
 public class TransactionDaoJdbc implements TransactionDao {
 
     private static final String FILTER_KEY_ASSET_ID = "asset";
 
+    /** Hydrates either {@link BuyTransaction} or {@link SellTransaction} based on stored type column. */
     private static Transaction mapRow(ResultSet rs) throws SQLException {
         String tt = rs.getString("transaction_type");
         Timestamp ts = rs.getTimestamp("transaction_date");
@@ -39,50 +42,63 @@ public class TransactionDaoJdbc implements TransactionDao {
                 : new SellTransaction(id, accountId, assetId, qty, unit, td);
     }
 
+    /** Loads a transaction row by numeric primary key. */
     @Override
     public Transaction findById(Long id) {
-        return Db.findOne(
+        Optional<Transaction> found =
+                Db.findOne(
                         """
                         SELECT id, account_id, asset_id, transaction_type, quantity, unit_price, transaction_date FROM dbo.transactions WHERE id = ?
                         """,
-                        TransactionDaoJdbc::mapRow,
-                        id)
-                .orElse(null);
+                        rs -> mapRow(rs),
+                        id);
+        if (found.isPresent()) {
+            return found.get();
+        }
+        return null;
     }
 
+    /** Returns an empty list intentionally because bulk scans are unsupported for trades. */
     @Override
     public List<Transaction> findAll() {
         return List.of();
     }
 
+    /** Blocks naive inserts because trading flows must call stored procedures enforcing constraints. */
     @Override
     public Transaction save(Transaction entity) {
         throw new UnsupportedOperationException("Use stored procedures for trades");
     }
 
+    /** Disallows direct updates for the same integrity reasons as {@link #save(Transaction)}. */
     @Override
     public void update(Transaction entity) {
         throw new UnsupportedOperationException();
     }
 
+    /** Prevents DAO-driven deletes to protect immutable audit expectations. */
     @Override
     public void delete(Long id) {
         throw new UnsupportedOperationException();
     }
 
+    /** Executes {@code dbo.sp_buy_asset} with JDBC callable statement semantics. */
     @Override
     public void executeBuyProcedure(long accountId, long assetId, int quantity, BigDecimal unitPrice) {
         Db.call("{call dbo.sp_buy_asset(?,?,?,?)}", accountId, assetId, quantity, unitPrice);
     }
 
+    /** Executes {@code dbo.sp_sell_asset} analogously to buy flows. */
     @Override
     public void executeSellProcedure(long accountId, long assetId, int quantity, BigDecimal unitPrice) {
         Db.call("{call dbo.sp_sell_asset(?,?,?,?)}", accountId, assetId, quantity, unitPrice);
     }
 
+    /** Computes net owned quantity by summing buys minus sells straight from SQL aggregates. */
     @Override
     public int ownedQuantity(long accountId, long assetId) {
-        return Db.findOne(
+        Optional<Integer> found =
+                Db.findOne(
                         """
                         SELECT COALESCE(SUM(CASE WHEN transaction_type = N'BUY' THEN quantity ELSE -quantity END), 0)
                         FROM dbo.transactions
@@ -90,10 +106,14 @@ public class TransactionDaoJdbc implements TransactionDao {
                         """,
                         rs -> rs.getBigDecimal(1).intValue(),
                         accountId,
-                        assetId)
-                .orElse(0);
+                        assetId);
+        if (found.isPresent()) {
+            return found.get();
+        }
+        return 0;
     }
 
+    /** Paginates ledger rows with dynamic filters for account/type/asset/date windows plus ORDER BY whitelist. */
     @Override
     public Page<Transaction> pageForAccount(TransactionPageQuery q) {
         long accountId = q.accountId();
@@ -136,7 +156,7 @@ public class TransactionDaoJdbc implements TransactionDao {
         return Db.findPage(
                 countSql,
                 dataSql,
-                TransactionDaoJdbc::mapRow,
+                rs -> mapRow(rs),
                 page,
                 size,
                 ps -> bindTxFilters(ps, typed),
@@ -147,6 +167,7 @@ public class TransactionDaoJdbc implements TransactionDao {
                 });
     }
 
+    /** Applies WHERE bind variables accumulated during {@link #pageForAccount}. */
     private static int bindTxFilters(java.sql.PreparedStatement ps, Map<String, Object> typed) throws SQLException {
         int idx = 1;
         ps.setLong(idx++, (Long) typed.get("accountId"));
@@ -165,30 +186,40 @@ public class TransactionDaoJdbc implements TransactionDao {
         return idx;
     }
 
+    /** Looks up ticker text for decorating transaction responses. */
     @Override
     public String findSymbol(long assetId) {
-        return Db.findOne(
+        Optional<String> found =
+                Db.findOne(
                         """
                         SELECT symbol FROM dbo.assets WHERE id = ?
                         """,
                         rs -> rs.getString(1),
-                        assetId)
-                .orElse(null);
+                        assetId);
+        if (found.isPresent()) {
+            return found.get();
+        }
+        return null;
     }
 
+    /** Retrieves the newest matching ledger row for account/asset/type tuple ordered by id desc. */
     @Override
     public Transaction findLatest(long accountId, long assetId, TransactionType type) {
-        return Db.findOne(
+        Optional<Transaction> found =
+                Db.findOne(
                         """
                         SELECT TOP 1 id, account_id, asset_id, transaction_type, quantity, unit_price, transaction_date
                         FROM dbo.transactions
                         WHERE account_id = ? AND asset_id = ? AND transaction_type = ?
                         ORDER BY id DESC
                         """,
-                        TransactionDaoJdbc::mapRow,
+                        rs -> mapRow(rs),
                         accountId,
                         assetId,
-                        type.name())
-                .orElse(null);
+                        type.name());
+        if (found.isPresent()) {
+            return found.get();
+        }
+        return null;
     }
 }

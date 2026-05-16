@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/** Validated bond-specific fields layered on top of {@link AssetCreateRequest}. */
 public record BondCreateRequest(
         @NotNull AssetType assetType,
         @NotBlank @Size(max = 20) String symbol,

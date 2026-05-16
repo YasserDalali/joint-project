@@ -12,7 +12,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Optional;
 
+/** JDBC repository for {@code dbo.accounts} rows modeled as immutable {@link Account} records. */
 @Repository
 public class AccountDaoJdbc implements AccountDao {
 
@@ -41,7 +43,8 @@ public class AccountDaoJdbc implements AccountDao {
             DELETE FROM dbo.accounts WHERE id = ?
             """;
 
-    private static Account map(ResultSet rs) throws SQLException {
+    /** Maps joined SQL columns into an {@link Account} aggregate. */
+    private static Account mapRow(ResultSet rs) throws SQLException {
         Timestamp ts = rs.getTimestamp("created_at");
         return new Account(
                 rs.getLong("id"),
@@ -51,16 +54,23 @@ public class AccountDaoJdbc implements AccountDao {
                 ts == null ? null : ts.toLocalDateTime());
     }
 
+    /** Retrieves one brokerage account by primary key or {@code null} when missing. */
     @Override
     public Account findById(Long id) {
-        return Db.findOne(FIND_BY_ID, AccountDaoJdbc::map, id).orElse(null);
+        Optional<Account> found = Db.findOne(FIND_BY_ID, rs -> mapRow(rs), id);
+        if (found.isPresent()) {
+            return found.get();
+        }
+        return null;
     }
 
+    /** Loads every account sorted by id ascending. */
     @Override
     public List<Account> findAll() {
-        return Db.findMany(FIND_ALL, AccountDaoJdbc::map);
+        return Db.findMany(FIND_ALL, rs -> mapRow(rs));
     }
 
+    /** Persists a fresh account row returning identifiers supplied by SQL Server OUTPUT. */
     @Override
     public Account save(Account entity) {
         long id =
@@ -86,6 +96,7 @@ public class AccountDaoJdbc implements AccountDao {
                 created == null ? null : created.toLocalDateTime());
     }
 
+    /** Overwrites mutable columns for an existing account primary key. */
     @Override
     public void update(Account entity) {
         Db.update(
@@ -96,11 +107,13 @@ public class AccountDaoJdbc implements AccountDao {
                 entity.id());
     }
 
+    /** Deletes an account row outright when higher layers authorize removal. */
     @Override
     public void delete(Long id) {
         Db.exec(DELETE_ACCOUNT, id);
     }
 
+    /** Paginates accounts filtered by owning {@code user_id} with ORDER BY whitelist integration. */
     @Override
     public Page<Account> pageByUserId(Long userId, int page, int size, List<String> sortSpecs) {
         String order =
@@ -116,7 +129,7 @@ public class AccountDaoJdbc implements AccountDao {
         return Db.findPage(
                 countSql,
                 dataSql,
-                AccountDaoJdbc::map,
+                rs -> mapRow(rs),
                 page,
                 size,
                 ps -> ps.setLong(1, userId),
@@ -127,6 +140,7 @@ public class AccountDaoJdbc implements AccountDao {
                 });
     }
 
+    /** Performs a targeted balance update without touching unrelated columns. */
     @Override
     public void updateCashBalance(Long id, BigDecimal newBalance) {
         Db.update(

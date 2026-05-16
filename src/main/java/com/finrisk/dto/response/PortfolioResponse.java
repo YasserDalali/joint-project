@@ -3,6 +3,7 @@ package com.finrisk.dto.response;
 import java.math.BigDecimal;
 import java.util.List;
 
+/** Snapshot combining cash, holdings, and rolled-up valuations for an account dashboard. */
 public record PortfolioResponse(
         long accountId,
         String currency,
@@ -11,6 +12,7 @@ public record PortfolioResponse(
         BigDecimal totalHoldingsValue,
         BigDecimal totalAccountValue) {
 
+    /** Defaults monetary fields to USD presentation when services omit an ISO currency code. */
     public PortfolioResponse(
             long accountId,
             BigDecimal cashBalance,

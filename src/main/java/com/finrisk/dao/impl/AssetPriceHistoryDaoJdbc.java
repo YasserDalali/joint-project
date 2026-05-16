@@ -10,9 +10,11 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.List;
 
+/** Persists and reads rows from {@code dbo.asset_price_history} backing volatility analytics. */
 @Repository
 public class AssetPriceHistoryDaoJdbc implements AssetPriceHistoryDao {
 
+    /** Appends a timestamped price observation linked to an asset id. */
     @Override
     public void insert(long assetId, BigDecimal price) {
         Db.exec(
@@ -23,6 +25,7 @@ public class AssetPriceHistoryDaoJdbc implements AssetPriceHistoryDao {
                 price);
     }
 
+    /** Retrieves the freshest {@code limit} prices ordered newest-first as bare decimals. */
     @Override
     public List<BigDecimal> latestPrices(long assetId, int limit) {
         return Db.findMany(
@@ -34,6 +37,7 @@ public class AssetPriceHistoryDaoJdbc implements AssetPriceHistoryDao {
                 assetId);
     }
 
+    /** Pages detailed {@link AssetPricePoint} rows including timestamps for REST consumers. */
     @Override
     public Page<AssetPricePoint> page(long assetId, int page, int size) {
         String countSql =
