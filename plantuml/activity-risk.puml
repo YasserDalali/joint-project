@@ -1,0 +1,80 @@
+@startuml activity-risk
+title Portfolio risk score calculation\n(log returns, volatility sigma, value-weighted score)
+caption FinRisk — swimlanes match StarUML ActivityDiagram1
+
+|User|
+start
+:GET /api/v1/accounts/{id}/risk-score;
+
+|RiskController|
+:Receive HTTP request;
+:Call RiskService.computeRisk(accountId);
+
+|RiskService|
+:Check account exists\n(cash balance lookup);
+
+|DAOs and SQL Server|
+:Query vw_portfolio_holdings\n(net qty x current price);
+
+|RiskService|
+:Sum holding current values\n-> totalValue;
+
+if (totalValue <= 0?) then (yes)
+  :Return score 0, level LOW,\nempty breakdown;
+  |RiskController|
+  :200 OK RiskScoreResponse;
+  |User|
+  :Receive risk score response;
+  stop
+endif
+
+repeat
+  |RiskService|
+  :Take next holding;
+
+  |DAOs and SQL Server|
+  :Query asset_price_history\n(last 30 prices);
+
+  |VolatilityRiskStrategy|
+  if (enough prices?) then (yes)
+    :Compute log returns\nr = ln(p[i] / p[i-1]);
+    :Mean of returns;
+    :Variance of returns;
+    :sigma = sqrt(variance)\n(daily volatility);
+    :Map sigma to RiskLevel;
+  else (no)
+    :Use asset fallback RiskLevel;
+  endif
+  :Return per-holding sigma and level;
+
+  |RiskService|
+  :weight = currentValue / totalValue;
+  :weightedSigma += weight * sigma;
+  note right
+    If history is short, sigma
+  comes from fallback constants
+  (LOW 0.005 ... VERY_HIGH 0.08)
+  end note
+
+repeat while (more holdings?) is (yes)
+->no;
+
+|VolatilityRiskStrategy|
+:Map weightedSigma\nto portfolio RiskLevel;
+
+|RiskService|
+:score = min(100, (weightedSigma / 0.12) * 100);
+note right
+  0.12 is the reference volatility
+  for a score of 100
+end note
+:Build RiskScoreResponse;
+
+|RiskController|
+:200 OK RiskScoreResponse;
+
+|User|
+:Receive risk score response;
+stop
+
+@enduml

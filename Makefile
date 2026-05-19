@@ -29,8 +29,9 @@ sonar:
 	@test -n "$$SONAR_LOGIN" || (echo "Set SONAR_LOGIN to a SonarQube user token (User → My Account → Security)"; exit 1)
 	mvn -B -DskipTests sonar:sonar -Dsonar.login=$$SONAR_LOGIN
 
-# --- PlantUML diagrams (use case + activity-with-swimlanes) --------------
-PUML_FILES := plantuml/usecase.puml plantuml/activity-risk.puml
+# --- PlantUML diagrams (use case, activity, sequence) ----------------------
+PUML_FILES := plantuml/usecase.puml plantuml/activity-risk.puml \
+	plantuml/sequence-buy.puml plantuml/sequence-portfolio.puml
 
 diagrams: diagrams-png diagrams-svg
 

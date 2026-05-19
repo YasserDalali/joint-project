@@ -10,7 +10,12 @@ if ! command -v plantuml >/dev/null 2>&1; then
   exit 1
 fi
 
-PUML=(plantuml/usecase.puml plantuml/activity-risk.puml)
+PUML=(
+  plantuml/usecase.puml
+  plantuml/activity-risk.puml
+  plantuml/sequence-buy.puml
+  plantuml/sequence-portfolio.puml
+)
 
 echo "Rendering PNG..."
 plantuml -tpng "${PUML[@]}"

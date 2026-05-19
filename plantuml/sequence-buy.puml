@@ -1,0 +1,64 @@
+@startuml sequence-buy
+title POST /api/v1/transactions/buy
+skinparam sequenceMessageAlign center
+
+actor Client
+participant "TransactionController" as TC
+participant "TransactionService" as TS
+participant "AccountDao" as AD
+participant "AssetDao" as AsD
+participant "TransactionDao" as TD
+participant "sp_buy_asset" as SP
+database "SQL Server" as DB
+
+Client -> TC: POST /api/v1/transactions/buy\n{accountId, assetId, quantity, unitPrice}
+TC -> TS: buy(TradeRequest)
+TS -> AD: findById(accountId)
+AD -> DB: SELECT FROM accounts WHERE id = ?
+DB --> AD: row or null
+AD --> TS: Account or null
+
+alt account null
+  TS --> TC: AccountNotFoundException
+  TC --> Client: 404 ACCOUNT_NOT_FOUND
+else account found
+  TS -> AsD: findById(assetId)
+  AsD --> TS: Asset or null
+  alt asset null
+    TS --> TC: AssetNotFoundException
+    TC --> Client: 404 ASSET_NOT_FOUND
+  else asset found
+    TS -> TD: executeBuyProcedure(...)
+    TD -> SP: CALL sp_buy_asset(?, ?, ?, ?)
+    note over SP, DB: SET XACT_ABORT ON;\nBEGIN TRANSACTION
+    SP -> DB: SELECT cash_balance WITH UPDLOCK HOLDLOCK
+    alt cash_balance < quantity * unit_price
+      SP --> TD: RAISERROR INSUFFICIENT_BALANCE
+      TD --> TS: InsufficientBalanceException
+      TS --> TC: InsufficientBalanceException
+      TC --> Client: 409 INSUFFICIENT_BALANCE
+    else sufficient funds
+      SP -> DB: UPDATE accounts SET cash_balance = cash_balance - total
+      SP -> DB: INSERT INTO transactions VALUES BUY
+      SP -> DB: INSERT INTO audit_logs BUY_TRANSACTION_CREATED
+      note over SP, DB: COMMIT
+      SP --> TD: ok
+      TD --> TS: ok
+      TS -> TD: findLatest + findSymbol
+      TD --> TS: Transaction record + symbol
+      TS --> TC: TransactionResponse
+      TC --> Client: 201 Created
+    end
+  end
+end
+
+note right of Client
+  **What this shows**
+  Step by step how POST /api/v1/transactions/buy works.
+  The service checks the account and asset exist,
+  then calls a SQL stored procedure that atomically
+  debits cash, inserts the transaction row, and writes an audit log.
+  If cash is insufficient, the procedure returns an error mapped to HTTP 409.
+end note
+
+@enduml

@@ -1,0 +1,36 @@
+@startuml sequence-portfolio
+title GET /api/v1/accounts/{id}/portfolio
+skinparam sequenceMessageAlign center
+
+actor Client
+participant "PortfolioController" as PC
+participant "PortfolioService" as PS
+participant "PortfolioDao" as PD
+participant "AssetDao" as AsD
+database "SQL Server" as DB
+
+Client -> PC: GET /api/v1/accounts/1/portfolio
+PC -> PS: getPortfolio(1)
+PS -> PD: findHoldings(1)
+PD -> DB: SELECT FROM vw_portfolio_holdings\nWHERE account_id = 1
+note over PD, DB: View aggregates BUY/SELL\ninto net quantity
+DB --> PD: holding rows
+PD --> PS: List Holding
+PS -> AsD: enrich each holding with asset details
+note over AsD: Asset Stock ETF Bond CryptoAsset
+AsD -> DB: SELECT FROM assets + asset_details
+DB --> AsD: List Asset
+AsD --> PS: List Asset
+PS --> PC: PortfolioResponse\ncashBalance holdings totals USD
+PC --> Client: 200 OK
+
+note right of Client
+  **What this shows**
+  How GET /api/v1/accounts/1/portfolio works.
+  The service queries a SQL view that aggregates
+  buys minus sells into net quantity per asset.
+  Each holding is enriched with current asset details.
+  The response includes cash, holdings, and total account value (USD).
+end note
+
+@enduml
