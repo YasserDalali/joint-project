@@ -28,7 +28,8 @@ public class AccountDaoJdbc implements AccountDao {
 
     private static final String INSERT =
             """
-            INSERT INTO dbo.accounts (user_id, account_name, cash_balance, created_at) OUTPUT INSERTED.id VALUES (?, ?, ?, SYSUTCDATETIME())
+            INSERT INTO dbo.accounts (user_id, account_name, cash_balance, created_at) VALUES (?, ?, ?, SYSUTCDATETIME());
+            SELECT CAST(SCOPE_IDENTITY() AS BIGINT);
             """;
 
     private static final String UPDATE_ACCOUNT =

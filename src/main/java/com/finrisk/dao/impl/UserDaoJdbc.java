@@ -31,7 +31,8 @@ public class UserDaoJdbc implements UserDao {
 
     private static final String INSERT =
             """
-            INSERT INTO dbo.users (full_name, email, created_at) OUTPUT INSERTED.id VALUES (?, ?, SYSUTCDATETIME())
+            INSERT INTO dbo.users (full_name, email, created_at) VALUES (?, ?, SYSUTCDATETIME());
+            SELECT CAST(SCOPE_IDENTITY() AS BIGINT);
             """;
 
     private static final String UPDATE_USER =

@@ -52,7 +52,10 @@ public final class DatabaseConnection {
         String port = env("DB_PORT", "1433");
         String database = env("DB_NAME", "FinRiskDB");
         String user = env("DB_USER", "sa");
-        String password = env("DB_PASSWORD", "");
+        String password = firstNonBlank(
+                env("DB_PASSWORD", ""),
+                env("SA_PASSWORD", "")
+        );
 
         String jdbcUrl =
                 "jdbc:sqlserver://" + host + ":" + port + ";databaseName=" + database
@@ -74,5 +77,14 @@ public final class DatabaseConnection {
         }
         v = System.getProperty(key);
         return v != null && !v.isEmpty() ? v : defaultValue;
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
     }
 }

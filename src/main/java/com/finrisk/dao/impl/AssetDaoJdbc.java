@@ -46,8 +46,8 @@ public class AssetDaoJdbc implements AssetDao {
     private static final String INSERT_ASSET =
             """
             INSERT INTO dbo.assets (symbol, name, asset_type, current_price, risk_level, created_at)
-            OUTPUT INSERTED.id
-            VALUES (?, ?, ?, ?, ?, SYSUTCDATETIME())
+            VALUES (?, ?, ?, ?, ?, SYSUTCDATETIME());
+            SELECT CAST(SCOPE_IDENTITY() AS BIGINT);
             """;
 
     private static boolean isUniqueViolation(SQLException e) {
