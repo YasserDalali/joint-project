@@ -7,7 +7,9 @@ import com.finrisk.util.Db;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -21,6 +23,25 @@ public class AssetPriceHistoryDaoJdbc implements AssetPriceHistoryDao {
                 """,
                 assetId,
                 price);
+    }
+
+    @Override
+    public void upsertForDate(long assetId, LocalDate date, BigDecimal price) {
+        Db.exec(
+                """
+                MERGE dbo.asset_price_history AS tgt
+                USING (VALUES (?, ?, ?)) AS src (asset_id, price, price_date)
+                  ON tgt.asset_id = src.asset_id
+                 AND CAST(tgt.recorded_at AS DATE) = src.price_date
+                WHEN MATCHED THEN
+                    UPDATE SET tgt.price = src.price
+                WHEN NOT MATCHED THEN
+                    INSERT (asset_id, price, recorded_at)
+                    VALUES (src.asset_id, src.price, CAST(src.price_date AS DATETIME2));
+                """,
+                assetId,
+                price,
+                Date.valueOf(date));
     }
 
     @Override
