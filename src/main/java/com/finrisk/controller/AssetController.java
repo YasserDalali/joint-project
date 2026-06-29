@@ -7,8 +7,10 @@ import com.finrisk.dto.response.AssetResponse;
 import com.finrisk.dto.response.Page;
 import com.finrisk.model.AssetType;
 import com.finrisk.service.AssetService;
+import com.finrisk.service.MarketDataService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,15 +22,18 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/assets")
 public class AssetController {
 
     private final AssetService assetService;
+    private final MarketDataService marketDataService;
 
-    public AssetController(AssetService assetService) {
+    public AssetController(AssetService assetService, MarketDataService marketDataService) {
         this.assetService = assetService;
+        this.marketDataService = marketDataService;
     }
 
     @GetMapping
@@ -64,5 +69,13 @@ public class AssetController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return assetService.priceHistory(id, page, size);
+    }
+
+    @PostMapping("/{id}/sync-prices")
+    public ResponseEntity<Map<String, Integer>> syncPrices(
+            @PathVariable long id,
+            @RequestParam(defaultValue = "30") int days) {
+        int synced = marketDataService.syncPrices(id, days);
+        return ResponseEntity.ok(Map.of("synced", synced));
     }
 }
