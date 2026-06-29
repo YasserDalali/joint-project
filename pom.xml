@@ -25,9 +25,8 @@
          or -Dsonar.token=YOUR_TOKEN on newer servers. User must have "Execute Analysis" on the project. -->
     <sonar.projectKey>finrisk-joint-project</sonar.projectKey>
     <sonar.host.url>http://localhost:9000</sonar.host.url>
-    <sonar.sources>src/main/java,finrisk-web/src</sonar.sources>
+    <sonar.sources>src/main/java</sonar.sources>
     <sonar.tests>src/test/java</sonar.tests>
-    <sonar.exclusions>**/node_modules/**,finrisk-web/src/generated/**,finrisk-web/stitch_finrisk_portfolio_management_api/**</sonar.exclusions>
   </properties>
 
   <dependencies>
