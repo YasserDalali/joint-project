@@ -4,11 +4,14 @@ import com.finrisk.dto.response.AssetPricePoint;
 import com.finrisk.dto.response.Page;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface AssetPriceHistoryDao {
 
     void insert(long assetId, BigDecimal price);
+
+    void upsertForDate(long assetId, LocalDate date, BigDecimal price);
 
     List<BigDecimal> latestPrices(long assetId, int limit);
 

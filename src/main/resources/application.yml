@@ -21,3 +21,7 @@ management:
     health:
       probes:
         enabled: true
+
+fmp:
+  api-key: ${FMP_API_KEY:}
+  base-url: https://financialmodelingprep.com/api/v3
