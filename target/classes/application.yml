@@ -1,6 +1,6 @@
 spring:
   application:
-    name: finrisk-api
+    name: risk-management-api
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -21,3 +21,7 @@ management:
     health:
       probes:
         enabled: true
+
+fmp:
+  api-key: ${FMP_API_KEY:}
+  base-url: https://financialmodelingprep.com/api/v3

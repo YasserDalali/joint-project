@@ -1,6 +1,6 @@
 spring:
   application:
-    name: finrisk-api
+    name: risk-management-api
   jackson:
     serialization:
       write-dates-as-timestamps: false

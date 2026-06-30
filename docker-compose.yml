@@ -21,11 +21,11 @@ services:
       retries: 10
       start_period: 40s
 
-  finrisk-api:
+  risk-management-api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: finrisk-api
+    container_name: risk-management-api
     depends_on:
       sqlserver:
         condition: service_healthy
