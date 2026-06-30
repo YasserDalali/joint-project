@@ -37,6 +37,7 @@ services:
       DB_USER: sa
       DB_PASSWORD: ${SA_PASSWORD:?set SA_PASSWORD}
       SA_PASSWORD: ${SA_PASSWORD:?set SA_PASSWORD}
+      FMP_API_KEY: ${FMP_API_KEY:}
     ports:
       # Host 18080 avoids collisions with local Spring Boot dev servers on :8080
       - "18080:8080"
