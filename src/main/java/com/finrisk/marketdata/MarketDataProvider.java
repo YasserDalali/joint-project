@@ -10,4 +10,10 @@ public interface MarketDataProvider {
      * provider is misconfigured, or a network error occurs.
      */
     List<PricePoint> fetchDailyPrices(String symbol, int days);
+
+    /**
+     * Returns company profile for {@code symbol}. Never throws; returns a
+     * default profile with sector/industry = "Unknown" on any error.
+     */
+    CompanyProfile fetchProfile(String symbol);
 }

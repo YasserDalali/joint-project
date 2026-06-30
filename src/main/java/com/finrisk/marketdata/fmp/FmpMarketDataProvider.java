@@ -2,6 +2,7 @@ package com.finrisk.marketdata.fmp;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.finrisk.marketdata.CompanyProfile;
 import com.finrisk.marketdata.MarketDataProvider;
 import com.finrisk.marketdata.PricePoint;
 import org.slf4j.Logger;
@@ -61,6 +62,39 @@ public class FmpMarketDataProvider implements MarketDataProvider {
         } catch (Exception e) {
             log.warn("FMP fetch failed for symbol {}: {}", symbol, e.getMessage());
             return List.of();
+        }
+    }
+
+    @Override
+    public CompanyProfile fetchProfile(String symbol) {
+        CompanyProfile unknown = new CompanyProfile(symbol, "Unknown", "Unknown", symbol);
+        if (config.getApiKey() == null || config.getApiKey().isBlank()) {
+            return unknown;
+        }
+        try {
+            String url = "%s/profile/%s?apikey=%s"
+                    .formatted(config.getBaseUrl(), symbol, config.getApiKey());
+            HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+                    .GET()
+                    .build();
+            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() != 200) {
+                log.warn("FMP profile returned HTTP {} for symbol {}", resp.statusCode(), symbol);
+                return unknown;
+            }
+            JsonNode root = mapper.readTree(resp.body());
+            if (!root.isArray() || root.isEmpty()) {
+                return unknown;
+            }
+            JsonNode p = root.get(0);
+            return new CompanyProfile(
+                    symbol,
+                    p.path("sector").asText("Unknown"),
+                    p.path("industry").asText("Unknown"),
+                    p.path("companyName").asText(symbol));
+        } catch (Exception e) {
+            log.warn("FMP fetchProfile failed for symbol {}: {}", symbol, e.getMessage());
+            return unknown;
         }
     }
 }
