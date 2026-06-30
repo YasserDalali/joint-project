@@ -4,10 +4,12 @@ import com.finrisk.dto.response.BetaResponse;
 import com.finrisk.dto.response.PortfolioResponse;
 import com.finrisk.dto.response.ProfitLossResponse;
 import com.finrisk.dto.response.RiskScoreResponse;
+import com.finrisk.dto.response.SectorExposureResponse;
 import com.finrisk.service.BetaService;
 import com.finrisk.service.PortfolioService;
 import com.finrisk.service.ProfitLossService;
 import com.finrisk.service.RiskService;
+import com.finrisk.service.SectorExposureService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,16 +23,19 @@ public class PortfolioController {
     private final ProfitLossService profitLossService;
     private final RiskService riskService;
     private final BetaService betaService;
+    private final SectorExposureService sectorExposureService;
 
     public PortfolioController(
             PortfolioService portfolioService,
             ProfitLossService profitLossService,
             RiskService riskService,
-            BetaService betaService) {
+            BetaService betaService,
+            SectorExposureService sectorExposureService) {
         this.portfolioService = portfolioService;
         this.profitLossService = profitLossService;
         this.riskService = riskService;
         this.betaService = betaService;
+        this.sectorExposureService = sectorExposureService;
     }
 
     @GetMapping("/portfolio")
@@ -51,5 +56,10 @@ public class PortfolioController {
     @GetMapping("/beta")
     public BetaResponse beta(@PathVariable long accountId) {
         return betaService.computeBeta(accountId);
+    }
+
+    @GetMapping("/sector-exposure")
+    public SectorExposureResponse sectorExposure(@PathVariable long accountId) {
+        return sectorExposureService.computeSectorExposure(accountId);
     }
 }
