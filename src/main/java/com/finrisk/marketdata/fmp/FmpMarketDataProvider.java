@@ -8,13 +8,17 @@ import com.finrisk.marketdata.MarketDataProvider;
 import com.finrisk.marketdata.PricePoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,14 +33,33 @@ public class FmpMarketDataProvider implements MarketDataProvider {
     private static final String ETF_NAME_FIELD = "name";
     private static final String ETF_WEIGHT_FIELD = "weightPercentage";
 
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
+
     private final FmpConfig config;
     private final HttpClient http;
     private final ObjectMapper mapper;
+    private final Duration requestTimeout;
 
+    @Autowired
     public FmpMarketDataProvider(FmpConfig config) {
+        this(config, CONNECT_TIMEOUT, REQUEST_TIMEOUT);
+    }
+
+    FmpMarketDataProvider(FmpConfig config, Duration connectTimeout, Duration requestTimeout) {
         this.config = config;
-        this.http = HttpClient.newHttpClient();
+        this.http = HttpClient.newBuilder().connectTimeout(connectTimeout).build();
         this.mapper = new ObjectMapper();
+        this.requestTimeout = requestTimeout;
+    }
+
+    /** Path-segment encoding: URLEncoder is form encoding, so '+' becomes %20. */
+    private static String enc(String symbol) {
+        return URLEncoder.encode(symbol, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    private HttpRequest get(String url) {
+        return HttpRequest.newBuilder(URI.create(url)).timeout(requestTimeout).GET().build();
     }
 
     @Override
@@ -47,10 +70,8 @@ public class FmpMarketDataProvider implements MarketDataProvider {
         try {
             String from = LocalDate.now().minusDays(days).toString();
             String url = "%s/historical-price-full/%s?from=%s&apikey=%s"
-                    .formatted(config.getBaseUrl(), symbol, from, config.getApiKey());
-            HttpRequest req = HttpRequest.newBuilder(URI.create(url))
-                    .GET()
-                    .build();
+                    .formatted(config.getBaseUrl(), enc(symbol), from, config.getApiKey());
+            HttpRequest req = get(url);
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() != 200) {
                 log.warn("FMP returned HTTP {} for symbol {}", resp.statusCode(), symbol);
@@ -66,7 +87,7 @@ public class FmpMarketDataProvider implements MarketDataProvider {
             }
             return points;
         } catch (Exception e) {
-            log.warn("FMP fetch failed for symbol {}: {}", symbol, e.getMessage());
+            log.warn("FMP fetch failed for symbol {}: {}", symbol, e.getClass().getSimpleName());
             return List.of();
         }
     }
@@ -79,10 +100,8 @@ public class FmpMarketDataProvider implements MarketDataProvider {
         }
         try {
             String url = "%s/profile/%s?apikey=%s"
-                    .formatted(config.getBaseUrl(), symbol, config.getApiKey());
-            HttpRequest req = HttpRequest.newBuilder(URI.create(url))
-                    .GET()
-                    .build();
+                    .formatted(config.getBaseUrl(), enc(symbol), config.getApiKey());
+            HttpRequest req = get(url);
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() != 200) {
                 log.warn("FMP profile returned HTTP {} for symbol {}", resp.statusCode(), symbol);
@@ -99,7 +118,7 @@ public class FmpMarketDataProvider implements MarketDataProvider {
                     p.path("industry").asText("Unknown"),
                     p.path("companyName").asText(symbol));
         } catch (Exception e) {
-            log.warn("FMP fetchProfile failed for symbol {}: {}", symbol, e.getMessage());
+            log.warn("FMP fetchProfile failed for symbol {}: {}", symbol, e.getClass().getSimpleName());
             return unknown;
         }
     }
@@ -111,27 +130,31 @@ public class FmpMarketDataProvider implements MarketDataProvider {
         }
         try {
             String url = "%s/etf-holder/%s?apikey=%s"
-                    .formatted(config.getBaseUrl(), etfSymbol, config.getApiKey());
-            HttpRequest req = HttpRequest.newBuilder(URI.create(url))
-                    .GET()
-                    .build();
+                    .formatted(config.getBaseUrl(), enc(etfSymbol), config.getApiKey());
+            HttpRequest req = get(url);
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() != 200) {
                 log.warn("FMP etf-holder returned HTTP {} for symbol {}", resp.statusCode(), etfSymbol);
                 return List.of();
             }
             JsonNode root = mapper.readTree(resp.body());
+            if (!root.isArray()) {
+                return List.of();
+            }
             List<EtfHolding> holdings = new ArrayList<>();
-            for (JsonNode n : root) { // ponytail: non-array body iterates its fields, which lack the keys and are skipped
-                if (!n.hasNonNull(ETF_ASSET_FIELD) || !n.hasNonNull(ETF_WEIGHT_FIELD)) continue;
-                holdings.add(new EtfHolding(
-                        n.get(ETF_ASSET_FIELD).asText(),
-                        n.path(ETF_NAME_FIELD).asText(n.get(ETF_ASSET_FIELD).asText()),
-                        new BigDecimal(n.get(ETF_WEIGHT_FIELD).asText()).movePointLeft(2)));
+            for (JsonNode n : root) {
+                String asset = n.path(ETF_ASSET_FIELD).asText("").trim();
+                if (asset.isEmpty() || !n.hasNonNull(ETF_WEIGHT_FIELD)) continue;
+                try {
+                    BigDecimal weight = new BigDecimal(n.get(ETF_WEIGHT_FIELD).asText()).movePointLeft(2);
+                    holdings.add(new EtfHolding(asset, n.path(ETF_NAME_FIELD).asText(asset), weight));
+                } catch (NumberFormatException skip) {
+                    // bad weight: skip this row only
+                }
             }
             return holdings;
         } catch (Exception e) {
-            log.warn("FMP fetchEtfHoldings failed for symbol {}: {}", etfSymbol, e.getMessage());
+            log.warn("FMP fetchEtfHoldings failed for symbol {}: {}", etfSymbol, e.getClass().getSimpleName());
             return List.of();
         }
     }
