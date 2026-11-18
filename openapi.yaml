@@ -371,6 +371,39 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/v1/assets/{id}/sync-prices:
+    post:
+      tags: [Assets]
+      summary: Sync historical prices from market data provider
+      description: |
+        Fetches historical prices from the configured market data provider
+        (FMP) and inserts them into `asset_price_history`.
+      operationId: syncAssetPrices
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+        - name: days
+          in: query
+          required: false
+          description: Number of days of history to sync.
+          schema:
+            type: integer
+            minimum: 1
+            default: 30
+      responses:
+        '200':
+          description: Number of price points synced
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [synced]
+                properties:
+                  synced:
+                    type: integer
+                    description: Count of new price points inserted.
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   # ===================================================== TRANSACTIONS
   /api/v1/transactions/buy:
     post:
@@ -576,6 +609,72 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RiskScoreResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{accountId}/beta:
+    get:
+      tags: [Portfolio]
+      summary: Get portfolio beta vs benchmark
+      operationId: getPortfolioBeta
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Portfolio beta breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BetaResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{accountId}/sector-exposure:
+    get:
+      tags: [Portfolio]
+      summary: Get sector exposure breakdown
+      operationId: getSectorExposure
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Sector allocation by weight and value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectorExposureResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{accountId}/diversification:
+    get:
+      tags: [Portfolio]
+      summary: Get diversification score and breakdown
+      operationId: getDiversification
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Diversification metrics (HHI, score, breakdown)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiversificationResponse'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -1217,6 +1316,110 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RiskBreakdownItem'
+
+    HoldingBeta:
+      type: object
+      required: [assetId, symbol, beta, weight]
+      properties:
+        assetId:
+          type: integer
+          format: int64
+        symbol:
+          type: string
+        beta:
+          type: number
+          format: double
+        weight:
+          type: number
+          format: double
+          description: Holding value divided by total holdings value.
+
+    BetaResponse:
+      type: object
+      required: [accountId, portfolioBeta, benchmark, holdings]
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        portfolioBeta:
+          type: number
+          format: double
+        benchmark:
+          type: string
+          example: SPY
+        holdings:
+          type: array
+          items:
+            $ref: '#/components/schemas/HoldingBeta'
+
+    SectorAllocation:
+      type: object
+      required: [sector, weight, value, symbols]
+      properties:
+        sector:
+          type: string
+        weight:
+          type: number
+          format: double
+        value:
+          type: number
+          format: double
+        symbols:
+          type: array
+          items:
+            type: string
+
+    SectorExposureResponse:
+      type: object
+      required: [accountId, sectors]
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        sectors:
+          type: array
+          items:
+            $ref: '#/components/schemas/SectorAllocation'
+
+    AssetTypeAllocation:
+      type: object
+      required: [assetType, weight, value]
+      properties:
+        assetType:
+          type: string
+        weight:
+          type: number
+          format: double
+        value:
+          type: number
+          format: double
+
+    DiversificationResponse:
+      type: object
+      required:
+        [accountId, score, hhiIndex, holdingCount, sectorCount, assetTypeCount, assetTypeBreakdown]
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        score:
+          type: number
+          format: double
+          description: Diversification score (0–100, higher is more diversified).
+        hhiIndex:
+          type: number
+          format: double
+          description: Herfindahl–Hirschman Index of holding weights.
+        holdingCount:
+          type: integer
+        sectorCount:
+          type: integer
+        assetTypeCount:
+          type: integer
+        assetTypeBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetTypeAllocation'
 
     # ---------------------------------------------------- error DTO
     Error:
