@@ -3,6 +3,7 @@ package com.finrisk.controller;
 import com.finrisk.dto.response.AlphaResponse;
 import com.finrisk.dto.response.BetaResponse;
 import com.finrisk.dto.response.CorrelationResponse;
+import com.finrisk.dto.response.DownsideResponse;
 import com.finrisk.dto.response.DrawdownResponse;
 import com.finrisk.dto.response.PortfolioResponse;
 import com.finrisk.dto.response.ProfitLossResponse;
@@ -13,6 +14,7 @@ import com.finrisk.service.AlphaService;
 import com.finrisk.service.BetaService;
 import com.finrisk.service.CorrelationService;
 import com.finrisk.service.DiversificationService;
+import com.finrisk.service.DownsideService;
 import com.finrisk.service.DrawdownService;
 import com.finrisk.service.PortfolioService;
 import com.finrisk.service.ProfitLossService;
@@ -37,6 +39,7 @@ public class PortfolioController {
     private final CorrelationService correlationService;
     private final DrawdownService drawdownService;
     private final AlphaService alphaService;
+    private final DownsideService downsideService;
 
     public PortfolioController(
             PortfolioService portfolioService,
@@ -47,7 +50,8 @@ public class PortfolioController {
             DiversificationService diversificationService,
             CorrelationService correlationService,
             DrawdownService drawdownService,
-            AlphaService alphaService) {
+            AlphaService alphaService,
+            DownsideService downsideService) {
         this.portfolioService = portfolioService;
         this.profitLossService = profitLossService;
         this.riskService = riskService;
@@ -57,6 +61,7 @@ public class PortfolioController {
         this.correlationService = correlationService;
         this.drawdownService = drawdownService;
         this.alphaService = alphaService;
+        this.downsideService = downsideService;
     }
 
     @GetMapping("/portfolio")
@@ -103,5 +108,10 @@ public class PortfolioController {
     public AlphaResponse alpha(
             @PathVariable long accountId, @RequestParam(defaultValue = "0.0") double riskFree) {
         return alphaService.computeAlpha(accountId, riskFree);
+    }
+
+    @GetMapping("/downside")
+    public DownsideResponse downside(@PathVariable long accountId) {
+        return downsideService.computeDownside(accountId);
     }
 }
