@@ -45,7 +45,7 @@ class ReturnsMathTest {
     void covarianceIsSampleOverShorterLength() {
         assertThat(ReturnsMath.covariance(new double[]{1, 2, 3, 4}, new double[]{2, 4, 6, 8}))
                 .isCloseTo(10.0 / 3, within(1e-12));
-        // truncated to first 3: a={1,2,3} b={2,4,6} -> cov = 2
+        // newest 3 of a: {2,3,4} with b={2,4,6} -> cov = 2
         assertThat(ReturnsMath.covariance(new double[]{1, 2, 3, 4}, new double[]{2, 4, 6}))
                 .isCloseTo(2.0, within(1e-12));
     }
@@ -69,6 +69,22 @@ class ReturnsMathTest {
         double[] out = ReturnsMath.weightedSum(
                 new double[][]{{1, 2, 3}, {10, 20}}, new double[]{0.5, 0.5});
 
-        assertThat(out).containsExactly(5.5, 11.0);
+        // newest-aligned: s0 tail {2,3}, s1 {10,20} -> 0.5*2+0.5*10 = 6.0 ; 0.5*3+0.5*20 = 11.5
+        // (oldest-aligned would give {5.5, 11.0})
+        assertThat(out).containsExactly(6.0, 11.5);
+    }
+
+    @Test
+    void covarianceAlignsDifferentLengthSeriesAtNewestEnd() {
+        // a tail {1,2,3}, b {2,4,6} -> cov = 2. (oldest-aligned a {9,1,2}: devs 5,-3,-2 vs -2,0,2 -> -14/2 = -7)
+        assertThat(ReturnsMath.covariance(new double[]{9, 1, 2, 3}, new double[]{2, 4, 6}))
+                .isCloseTo(2.0, within(1e-12));
+    }
+
+    @Test
+    void correlationAlignsDifferentLengthSeriesAtNewestEnd() {
+        // a tail {1,2,3} vs b {2,4,6} -> exactly 1. (oldest-aligned a {9,1,2} gives about -0.80)
+        assertThat(ReturnsMath.correlation(new double[]{9, 1, 2, 3}, new double[]{2, 4, 6}))
+                .isCloseTo(1.0, within(1e-12));
     }
 }

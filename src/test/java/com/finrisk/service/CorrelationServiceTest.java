@@ -124,6 +124,19 @@ class CorrelationServiceTest {
     }
 
     @Test
+    void exactlyFourReturnSamplesIsUndefinedButFiveIsDefined() {
+        // 5 prices -> 4 returns (below MIN_SAMPLES) ; 6 prices -> 5 returns (defined)
+        givenHoldings(holding(1, "A"), holding(2, "B"));
+        givenSeries(1, BASE.subList(0, 5));
+        givenSeries(2, SQUARED.subList(0, 5));
+        assertThat(service.computeCorrelation(1L).matrix().get(0).get(1)).isNull();
+
+        givenSeries(1, BASE.subList(0, 6));
+        givenSeries(2, SQUARED.subList(0, 6));
+        assertThat(service.computeCorrelation(1L).matrix().get(0).get(1)).isCloseTo(1.0, within(1e-9));
+    }
+
+    @Test
     void singleHoldingHasNullAverage() {
         givenHoldings(holding(1, "A"));
         givenSeries(1, BASE);

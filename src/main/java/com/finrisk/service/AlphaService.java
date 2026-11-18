@@ -21,6 +21,7 @@ public class AlphaService {
     }
 
     public AlphaResponse computeAlpha(long accountId, double riskFree) {
+        if (!Double.isFinite(riskFree)) throw new IllegalArgumentException("riskFree must be a finite number");
         List<Holding> holdings = prices.requireHoldings(accountId);
         double beta = betaService.computeBeta(accountId).portfolioBeta();
 
@@ -34,6 +35,9 @@ public class AlphaService {
             if (p.length >= PortfolioPrices.MIN_SAMPLES) {
                 double[] b = ReturnsMath.logReturns(prices.benchmarkPricesOldestFirst());
                 if (b.length >= PortfolioPrices.MIN_SAMPLES) {
+                    int n = Math.min(p.length, b.length);
+                    p = ReturnsMath.tail(p, n);
+                    b = ReturnsMath.tail(b, n);
                     portfolioReturn = ReturnsMath.mean(p) * TRADING_DAYS;
                     benchmarkReturn = ReturnsMath.mean(b) * TRADING_DAYS;
                     alpha = portfolioReturn - (riskFree + beta * (benchmarkReturn - riskFree));

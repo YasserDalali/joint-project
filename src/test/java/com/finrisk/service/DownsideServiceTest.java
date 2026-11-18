@@ -90,16 +90,17 @@ class DownsideServiceTest {
     void downsideBetaIsTwoWhenPortfolioIsTwiceSpyOnDownDays() {
         // rm has 5 down days: -0.01 -0.02 -0.03 -0.015 -0.025 (plus up days 0.01, 0.02).
         // Two holdings, weights 0.75/0.25. Per day x_t varies:
-        //   A = 2rm + x (+0.05 on up days), B = 2rm - 3x (+0.05 on up days)
+        //   A = 2rm + x + u, B = 2rm - 3x + u with u = 0 on down days, u = +0.05 on up day 4, u = -0.05 on up day 1
         //   rp = 0.75A + 0.25B = 2rm + 0.75x - 0.75x (+0.05 up) = 2rm on down days.
         // (with a wrong equal weighting rp would be 2rm - x, so the slope would not be 2.)
-        // On down days cov(rp,rm)/var(rm) = 2 exactly. Up days are polluted (+0.05) so an
-        // unfiltered regression would not give 2.
+        // On down days cov(rp,rm)/var(rm) = 2 exactly. Up days are polluted so an unfiltered regression
+        // would not give 2; and on up day 1 rp = 2*0.01 - 0.05 = -0.03 < 0, so filtering on rp<0 (wrong
+        // variable) would pull that day in and also break the slope of 2.
         double[] rm = {-0.01, 0.01, -0.02, -0.03, 0.02, -0.015, -0.025};
         double[] x = {0.01, -0.02, 0.03, -0.01, 0.02, 0.04, -0.03};
         double[] a = new double[rm.length], b = new double[rm.length];
         for (int i = 0; i < rm.length; i++) {
-            double up = rm[i] >= 0 ? 0.05 : 0.0;
+            double up = rm[i] >= 0 ? (i == 1 ? -0.05 : 0.05) : 0.0;
             a[i] = 2 * rm[i] + x[i] + up;
             b[i] = 2 * rm[i] - 3 * x[i] + up;
         }
@@ -113,6 +114,18 @@ class DownsideServiceTest {
         DownsideResponse r = service.computeDownside(1L);
 
         assertThat(r.downsideBeta()).isCloseTo(2.0, within(1e-9));
+    }
+
+    @Test
+    void downsideBetaAlignsShorterBenchmarkAtNewestEnd() {
+        // p has 8 returns, rm has 6; newest-aligned uses the last 6 of p.
+        // p tail = 2*rm exactly, rm down days are the first five -> beta = 2.
+        // (oldest-aligned pairs p[0..5] = .07,-.05,-.02,-.04,-.06,.. with rm: down-day cov sum .001 / var sum .00025 = 4)
+        double[] rm = {-0.01, -0.02, -0.03, -0.015, -0.025, 0.02};
+        double[] rp = {0.07, -0.05, -0.02, -0.04, -0.06, -0.03, -0.05, 0.04};
+        givenSingleHolding(rp, rm);
+
+        assertThat(service.computeDownside(1L).downsideBeta()).isCloseTo(2.0, within(1e-9));
     }
 
     @Test

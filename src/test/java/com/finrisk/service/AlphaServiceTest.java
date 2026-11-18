@@ -56,7 +56,7 @@ class AlphaServiceTest {
 
     @Test
     void alphaMatchesJensenFormulaForWeightedPortfolio() {
-        // Portfolio daily mean = 0.75*(ln2/5) + 0.25*0 = 0.15*ln2 ; annual = 0.15*ln2*252/ ... = 0.75*ln2/5*252
+        // Portfolio daily mean = 0.75*(ln2/5) + 0.25*0 = 0.75*(ln2/5) = 0.15*ln2 ; annual = 0.15*ln2*252
         // Benchmark annual = ln1.5/5*252. beta 0.8, rf 0.02.
         // alpha = pr - (0.02 + 0.8*(br - 0.02))
         givenTwoHoldings75_25();
@@ -89,6 +89,42 @@ class AlphaServiceTest {
         double br = Math.log(1.5) / 5 * 252;
         assertThat(a0).isCloseTo(pr - 0.5 * br, within(1e-9));
         assertThat(a4).isCloseTo(pr - 0.5 * br - 0.02, within(1e-9));
+    }
+
+    private static List<Double> pricesFor(double... r) {
+        List<Double> p = new java.util.ArrayList<>(List.of(100.0));
+        for (double x : r) p.add(p.get(p.size() - 1) * Math.exp(x));
+        return p;
+    }
+
+    @Test
+    void shorterBenchmarkAlignsBothSeriesAtNewestEnd() {
+        // portfolio 8 returns, benchmark 6 -> both cut to the newest 6.
+        // p = {.40,-.20,.01,.02,.03,.04,.05,.06}; newest 6 sum .21 -> mean .035
+        // (oldest-aligned first 6 would be .30/6 = .05; whole series .41/8 = .05125)
+        // b mean = .02 ; beta 1, rf 0 -> alpha = (.035 - .02)*252
+        Holding h = holding(1, "A");
+        when(prices.requireHoldings(1L)).thenReturn(List.of(h));
+        when(prices.weights(List.of(h))).thenReturn(new double[] {1.0});
+        when(prices.assetPricesOldestFirst(1L))
+                .thenReturn(pricesFor(0.40, -0.20, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06));
+        when(prices.benchmarkPricesOldestFirst()).thenReturn(pricesFor(0.02, 0.02, 0.02, 0.02, 0.02, 0.02));
+        givenBeta(1.0);
+
+        AlphaResponse r = service.computeAlpha(1L, 0.0);
+
+        assertThat(r.portfolioReturn()).isCloseTo(0.035 * 252, within(1e-9));
+        assertThat(r.benchmarkReturn()).isCloseTo(0.02 * 252, within(1e-9));
+        assertThat(r.alpha()).isCloseTo(0.015 * 252, within(1e-9));
+    }
+
+    @Test
+    void nonFiniteRiskFreeIsRejected() {
+        assertThatThrownBy(() -> service.computeAlpha(1L, Double.NaN)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.computeAlpha(1L, Double.POSITIVE_INFINITY))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.computeAlpha(1L, Double.NEGATIVE_INFINITY))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

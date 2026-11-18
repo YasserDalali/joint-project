@@ -58,6 +58,22 @@ class EtfLookThroughServiceTest {
     }
 
     @Test
+    void lowerCaseDirectStockMergesWithUpperCaseConstituent() {
+        // aapl 600 (w=0.6) direct, SPY 400 (w=0.4) holds AAPL 10% -> one exposure AAPL: direct 0.6, via 0.04, eff 0.64
+        List<Holding> hs = List.of(h(1, "aapl", AssetType.STOCK, 600), h(2, "SPY", AssetType.ETF, 400));
+        given(hs, 0.6, 0.4);
+        when(provider.fetchEtfHoldings("SPY")).thenReturn(List.of(eh("AAPL", "0.10")));
+
+        LookThroughResponse r = service.lookThrough(1L);
+
+        assertThat(r.exposures()).hasSize(1);
+        Exposure a = find(r, "AAPL");
+        assertThat(a.directWeight()).isCloseTo(0.6, within(EPS));
+        assertThat(a.viaEtfWeight()).isCloseTo(0.04, within(EPS));
+        assertThat(a.effectiveWeight()).isCloseTo(0.64, within(EPS));
+    }
+
+    @Test
     void stockPlusEtfHoldingSameStock_sumsDirectAndVia() {
         // AAPL 600 (w=0.6), SPY 400 (w=0.4); SPY holds AAPL 10% and MSFT 5%.
         // AAPL: direct 0.6, via 0.4*0.10=0.04 -> effective 0.64; MSFT via 0.4*0.05=0.02; SPY residual not shown.
@@ -190,6 +206,19 @@ class EtfLookThroughServiceTest {
         assertThat(p.overlap()).isCloseTo(0.5, within(EPS));
         assertThat(p.sharedHoldings()).containsExactly("MSFT", "AAPL");
         assertThat(r.unresolvedEtfs()).isEmpty();
+    }
+
+    @Test
+    void overlap_constituentsDifferingInCaseAreShared() {
+        // aapl .5 vs AAPL .2 -> shared min = .2
+        givenEtfs("AAA", "BBB");
+        when(provider.fetchEtfHoldings("AAA")).thenReturn(List.of(eh("aapl", "0.5")));
+        when(provider.fetchEtfHoldings("BBB")).thenReturn(List.of(eh("AAPL", "0.2")));
+
+        OverlapResponse.Pair p = service.overlap(1L).pairs().get(0);
+
+        assertThat(p.overlap()).isCloseTo(0.2, within(EPS));
+        assertThat(p.sharedHoldings()).containsExactly("AAPL");
     }
 
     @Test

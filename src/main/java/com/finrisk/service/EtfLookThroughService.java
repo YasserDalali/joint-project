@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -40,12 +41,12 @@ public class EtfLookThroughService {
             List<EtfHolding> constituents = h.assetType() == AssetType.ETF ? etfs.get(h.symbol()) : null;
             if (constituents == null || constituents.isEmpty()) {
                 if (constituents != null && !unresolved.contains(h.symbol())) unresolved.add(h.symbol());
-                acc.computeIfAbsent(h.symbol(), k -> new Acc(h.name())).direct += w[i];
+                acc.computeIfAbsent(h.symbol().toUpperCase(Locale.ROOT), k -> new Acc(h.name())).direct += w[i];
                 continue;
             }
             for (EtfHolding u : constituents) {
                 double via = w[i] * u.weight().doubleValue();
-                Acc a = acc.computeIfAbsent(u.symbol(), k -> new Acc(u.name()));
+                Acc a = acc.computeIfAbsent(u.symbol().toUpperCase(Locale.ROOT), k -> new Acc(u.name()));
                 a.via += via;
                 a.sources.add(new Source(h.symbol(), via));
             }
@@ -69,7 +70,7 @@ public class EtfLookThroughService {
                 return;
             }
             Map<String, BigDecimal> m = new LinkedHashMap<>();
-            constituents.forEach(c -> m.merge(c.symbol(), c.weight(), BigDecimal::add));
+            constituents.forEach(c -> m.merge(c.symbol().toUpperCase(Locale.ROOT), c.weight(), BigDecimal::add));
             weights.put(etf, m);
         });
 

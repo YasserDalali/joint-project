@@ -46,6 +46,8 @@ public class DownsideService {
     /** Beta over only the days the benchmark fell; null if fewer than MIN_SAMPLES such days or zero variance. */
     private static Double downsideBeta(double[] p, double[] b) {
         int n = Math.min(p.length, b.length);
+        p = ReturnsMath.tail(p, n);
+        b = ReturnsMath.tail(b, n);
         double[] rp = new double[n], rm = new double[n];
         int k = 0;
         for (int i = 0; i < n; i++) {
