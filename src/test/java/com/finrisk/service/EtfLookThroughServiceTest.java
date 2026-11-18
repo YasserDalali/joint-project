@@ -3,6 +3,7 @@ package com.finrisk.service;
 import com.finrisk.dto.response.Holding;
 import com.finrisk.dto.response.LookThroughResponse;
 import com.finrisk.dto.response.LookThroughResponse.Exposure;
+import com.finrisk.dto.response.OverlapResponse;
 import com.finrisk.exception.AccountNotFoundException;
 import com.finrisk.marketdata.EtfHolding;
 import com.finrisk.marketdata.MarketDataProvider;
@@ -161,5 +162,120 @@ class EtfLookThroughServiceTest {
         assertThat(r.totalValue()).isEqualByComparingTo("0");
         assertThat(r.exposures()).isEmpty();
         assertThat(r.unresolvedEtfs()).isEmpty();
+    }
+
+    private void givenEtfs(String... symbols) {
+        List<Holding> hs = new java.util.ArrayList<>();
+        for (int i = 0; i < symbols.length; i++) hs.add(h(i + 1, symbols[i], AssetType.ETF, 100));
+        when(prices.requireHoldings(1L)).thenReturn(hs);
+    }
+
+    private static final List<EtfHolding> A = List.of(eh("AAPL", "0.5"), eh("MSFT", "0.3"), eh("NVDA", "0.2"));
+
+    @Test
+    void overlap_partial_usesMinOfUnequalWeights_andSortsShared() {
+        // A: AAPL .5 MSFT .3 NVDA .2 ; B: AAPL .2 MSFT .4 GOOG .4
+        // shared AAPL min(.5,.2)=.2, MSFT min(.3,.4)=.3 -> overlap .5; shared sorted MSFT(.3), AAPL(.2)
+        givenEtfs("AAA", "BBB");
+        when(provider.fetchEtfHoldings("AAA")).thenReturn(A);
+        when(provider.fetchEtfHoldings("BBB")).thenReturn(List.of(eh("AAPL", "0.2"), eh("MSFT", "0.4"), eh("GOOG", "0.4")));
+
+        OverlapResponse r = service.overlap(1L);
+
+        assertThat(r.accountId()).isEqualTo(1L);
+        assertThat(r.pairs()).hasSize(1);
+        OverlapResponse.Pair p = r.pairs().get(0);
+        assertThat(p.etfA()).isEqualTo("AAA");
+        assertThat(p.etfB()).isEqualTo("BBB");
+        assertThat(p.overlap()).isCloseTo(0.5, within(EPS));
+        assertThat(p.sharedHoldings()).containsExactly("MSFT", "AAPL");
+        assertThat(r.unresolvedEtfs()).isEmpty();
+    }
+
+    @Test
+    void overlap_identicalEtfs_isOne() {
+        // .5+.3+.2 = 1.0
+        givenEtfs("AAA", "BBB");
+        when(provider.fetchEtfHoldings("AAA")).thenReturn(A);
+        when(provider.fetchEtfHoldings("BBB")).thenReturn(A);
+
+        OverlapResponse.Pair p = service.overlap(1L).pairs().get(0);
+
+        assertThat(p.overlap()).isCloseTo(1.0, within(EPS));
+        assertThat(p.sharedHoldings()).containsExactly("AAPL", "MSFT", "NVDA");
+    }
+
+    @Test
+    void overlap_disjointEtfs_isZeroWithNoShared() {
+        givenEtfs("AAA", "BBB");
+        when(provider.fetchEtfHoldings("AAA")).thenReturn(A);
+        when(provider.fetchEtfHoldings("BBB")).thenReturn(List.of(eh("TSLA", "0.6"), eh("GOOG", "0.4")));
+
+        OverlapResponse.Pair p = service.overlap(1L).pairs().get(0);
+
+        assertThat(p.overlap()).isCloseTo(0.0, within(EPS));
+        assertThat(p.sharedHoldings()).isEmpty();
+    }
+
+    @Test
+    void overlap_threeEtfs_threePairsSortedDescending() {
+        // A: AAPL .6 MSFT .4 ; B: AAPL .5 MSFT .3 NVDA .2 ; C: AAPL .3 NVDA .1 TSLA .6
+        // AB = min(.6,.5)+min(.4,.3) = .5+.3 = .8 ; AC = min(.6,.3) = .3 ; BC = min(.5,.3)+min(.2,.1) = .3+.1 = .4
+        givenEtfs("AAA", "BBB", "CCC");
+        when(provider.fetchEtfHoldings("AAA")).thenReturn(List.of(eh("AAPL", "0.6"), eh("MSFT", "0.4")));
+        when(provider.fetchEtfHoldings("BBB")).thenReturn(List.of(eh("AAPL", "0.5"), eh("MSFT", "0.3"), eh("NVDA", "0.2")));
+        when(provider.fetchEtfHoldings("CCC")).thenReturn(List.of(eh("AAPL", "0.3"), eh("NVDA", "0.1"), eh("TSLA", "0.6")));
+
+        List<OverlapResponse.Pair> ps = service.overlap(1L).pairs();
+
+        assertThat(ps).extracting(p -> p.etfA() + p.etfB()).containsExactly("AAABBB", "BBBCCC", "AAACCC");
+        assertThat(ps).extracting(OverlapResponse.Pair::overlap)
+                .satisfiesExactly(o -> assertThat(o).isCloseTo(0.8, within(EPS)),
+                        o -> assertThat(o).isCloseTo(0.4, within(EPS)),
+                        o -> assertThat(o).isCloseTo(0.3, within(EPS)));
+    }
+
+    @Test
+    void overlap_unresolvedEtf_excludedFromPairsAndReported() {
+        givenEtfs("AAA", "BBB", "XYZ");
+        when(provider.fetchEtfHoldings("AAA")).thenReturn(A);
+        when(provider.fetchEtfHoldings("BBB")).thenReturn(A);
+        when(provider.fetchEtfHoldings("XYZ")).thenReturn(List.of());
+
+        OverlapResponse r = service.overlap(1L);
+
+        assertThat(r.pairs()).hasSize(1);
+        assertThat(r.unresolvedEtfs()).containsExactly("XYZ");
+    }
+
+    @Test
+    void overlap_singleEtf_noPairs() {
+        givenEtfs("AAA");
+        when(provider.fetchEtfHoldings("AAA")).thenReturn(A);
+
+        OverlapResponse r = service.overlap(1L);
+
+        assertThat(r.pairs()).isEmpty();
+        assertThat(r.unresolvedEtfs()).isEmpty();
+    }
+
+    @Test
+    void overlap_providerCalledOncePerDistinctEtf_evenWithTwoLots() {
+        // AAA held in two lots + BBB once -> 2 provider calls, 1 pair
+        givenEtfs("AAA", "BBB", "AAA");
+        when(provider.fetchEtfHoldings("AAA")).thenReturn(A);
+        when(provider.fetchEtfHoldings("BBB")).thenReturn(A);
+
+        OverlapResponse r = service.overlap(1L);
+
+        assertThat(r.pairs()).hasSize(1);
+        verify(provider, times(1)).fetchEtfHoldings("AAA");
+        verify(provider, times(1)).fetchEtfHoldings("BBB");
+    }
+
+    @Test
+    void overlap_accountNotFound_propagates() {
+        when(prices.requireHoldings(9L)).thenThrow(new AccountNotFoundException("Account not found"));
+        assertThatThrownBy(() -> service.overlap(9L)).isInstanceOf(AccountNotFoundException.class);
     }
 }

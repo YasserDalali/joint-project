@@ -6,6 +6,7 @@ import com.finrisk.dto.response.CorrelationResponse;
 import com.finrisk.dto.response.DownsideResponse;
 import com.finrisk.dto.response.DrawdownResponse;
 import com.finrisk.dto.response.LookThroughResponse;
+import com.finrisk.dto.response.OverlapResponse;
 import com.finrisk.dto.response.PortfolioResponse;
 import com.finrisk.dto.response.ProfitLossResponse;
 import com.finrisk.dto.response.RiskScoreResponse;
@@ -123,5 +124,10 @@ public class PortfolioController {
     @GetMapping("/etf-look-through")
     public LookThroughResponse etfLookThrough(@PathVariable long accountId) {
         return etfLookThroughService.lookThrough(accountId);
+    }
+
+    @GetMapping("/etf-overlap")
+    public OverlapResponse etfOverlap(@PathVariable long accountId) {
+        return etfLookThroughService.overlap(accountId);
     }
 }

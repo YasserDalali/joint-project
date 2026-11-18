@@ -4,6 +4,7 @@ import com.finrisk.dto.response.Holding;
 import com.finrisk.dto.response.LookThroughResponse;
 import com.finrisk.dto.response.LookThroughResponse.Exposure;
 import com.finrisk.dto.response.LookThroughResponse.Source;
+import com.finrisk.dto.response.OverlapResponse;
 import com.finrisk.marketdata.EtfHolding;
 import com.finrisk.marketdata.MarketDataProvider;
 import com.finrisk.model.AssetType;
@@ -56,6 +57,40 @@ public class EtfLookThroughService {
                 .toList();
         BigDecimal total = holdings.stream().map(Holding::currentValue).reduce(BigDecimal.ZERO, BigDecimal::add);
         return new LookThroughResponse(accountId, total, exposures, unresolved);
+    }
+
+    public OverlapResponse overlap(long accountId) {
+        Map<String, List<EtfHolding>> etfs = fetchEtfHoldings(prices.requireHoldings(accountId));
+        List<String> unresolved = new ArrayList<>();
+        Map<String, Map<String, BigDecimal>> weights = new LinkedHashMap<>();
+        etfs.forEach((etf, constituents) -> {
+            if (constituents.isEmpty()) {
+                unresolved.add(etf);
+                return;
+            }
+            Map<String, BigDecimal> m = new LinkedHashMap<>();
+            constituents.forEach(c -> m.merge(c.symbol(), c.weight(), BigDecimal::add));
+            weights.put(etf, m);
+        });
+
+        List<String> names = new ArrayList<>(weights.keySet());
+        List<OverlapResponse.Pair> pairs = new ArrayList<>();
+        for (int i = 0; i < names.size(); i++) {
+            for (int j = i + 1; j < names.size(); j++) {
+                Map<String, BigDecimal> a = weights.get(names.get(i)), b = weights.get(names.get(j));
+                Map<String, BigDecimal> shared = new LinkedHashMap<>();
+                a.forEach((sym, wa) -> {
+                    if (b.containsKey(sym)) shared.put(sym, wa.min(b.get(sym)));
+                });
+                double overlap = shared.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add).doubleValue();
+                List<String> symbols = shared.entrySet().stream()
+                        .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+                        .map(Map.Entry::getKey).toList();
+                pairs.add(new OverlapResponse.Pair(names.get(i), names.get(j), overlap, symbols));
+            }
+        }
+        pairs.sort(Comparator.comparingDouble(OverlapResponse.Pair::overlap).reversed());
+        return new OverlapResponse(accountId, pairs, unresolved);
     }
 
     /** Fetches each distinct ETF's holdings once, keyed by ETF symbol (empty list = unresolved). */
