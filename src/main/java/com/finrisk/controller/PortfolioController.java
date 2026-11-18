@@ -1,5 +1,6 @@
 package com.finrisk.controller;
 
+import com.finrisk.dto.response.AlphaResponse;
 import com.finrisk.dto.response.BetaResponse;
 import com.finrisk.dto.response.CorrelationResponse;
 import com.finrisk.dto.response.DrawdownResponse;
@@ -8,6 +9,7 @@ import com.finrisk.dto.response.ProfitLossResponse;
 import com.finrisk.dto.response.RiskScoreResponse;
 import com.finrisk.dto.response.DiversificationResponse;
 import com.finrisk.dto.response.SectorExposureResponse;
+import com.finrisk.service.AlphaService;
 import com.finrisk.service.BetaService;
 import com.finrisk.service.CorrelationService;
 import com.finrisk.service.DiversificationService;
@@ -19,6 +21,7 @@ import com.finrisk.service.SectorExposureService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -33,6 +36,7 @@ public class PortfolioController {
     private final DiversificationService diversificationService;
     private final CorrelationService correlationService;
     private final DrawdownService drawdownService;
+    private final AlphaService alphaService;
 
     public PortfolioController(
             PortfolioService portfolioService,
@@ -42,7 +46,8 @@ public class PortfolioController {
             SectorExposureService sectorExposureService,
             DiversificationService diversificationService,
             CorrelationService correlationService,
-            DrawdownService drawdownService) {
+            DrawdownService drawdownService,
+            AlphaService alphaService) {
         this.portfolioService = portfolioService;
         this.profitLossService = profitLossService;
         this.riskService = riskService;
@@ -51,6 +56,7 @@ public class PortfolioController {
         this.diversificationService = diversificationService;
         this.correlationService = correlationService;
         this.drawdownService = drawdownService;
+        this.alphaService = alphaService;
     }
 
     @GetMapping("/portfolio")
@@ -91,5 +97,11 @@ public class PortfolioController {
     @GetMapping("/drawdown")
     public DrawdownResponse drawdown(@PathVariable long accountId) {
         return drawdownService.computeDrawdown(accountId);
+    }
+
+    @GetMapping("/alpha")
+    public AlphaResponse alpha(
+            @PathVariable long accountId, @RequestParam(defaultValue = "0.0") double riskFree) {
+        return alphaService.computeAlpha(accountId, riskFree);
     }
 }
