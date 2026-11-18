@@ -5,6 +5,7 @@ import com.finrisk.dto.response.BetaResponse;
 import com.finrisk.dto.response.CorrelationResponse;
 import com.finrisk.dto.response.DownsideResponse;
 import com.finrisk.dto.response.DrawdownResponse;
+import com.finrisk.dto.response.LookThroughResponse;
 import com.finrisk.dto.response.PortfolioResponse;
 import com.finrisk.dto.response.ProfitLossResponse;
 import com.finrisk.dto.response.RiskScoreResponse;
@@ -16,6 +17,7 @@ import com.finrisk.service.CorrelationService;
 import com.finrisk.service.DiversificationService;
 import com.finrisk.service.DownsideService;
 import com.finrisk.service.DrawdownService;
+import com.finrisk.service.EtfLookThroughService;
 import com.finrisk.service.PortfolioService;
 import com.finrisk.service.ProfitLossService;
 import com.finrisk.service.RiskService;
@@ -40,6 +42,7 @@ public class PortfolioController {
     private final DrawdownService drawdownService;
     private final AlphaService alphaService;
     private final DownsideService downsideService;
+    private final EtfLookThroughService etfLookThroughService;
 
     public PortfolioController(
             PortfolioService portfolioService,
@@ -51,7 +54,8 @@ public class PortfolioController {
             CorrelationService correlationService,
             DrawdownService drawdownService,
             AlphaService alphaService,
-            DownsideService downsideService) {
+            DownsideService downsideService,
+            EtfLookThroughService etfLookThroughService) {
         this.portfolioService = portfolioService;
         this.profitLossService = profitLossService;
         this.riskService = riskService;
@@ -62,6 +66,7 @@ public class PortfolioController {
         this.drawdownService = drawdownService;
         this.alphaService = alphaService;
         this.downsideService = downsideService;
+        this.etfLookThroughService = etfLookThroughService;
     }
 
     @GetMapping("/portfolio")
@@ -113,5 +118,10 @@ public class PortfolioController {
     @GetMapping("/downside")
     public DownsideResponse downside(@PathVariable long accountId) {
         return downsideService.computeDownside(accountId);
+    }
+
+    @GetMapping("/etf-look-through")
+    public LookThroughResponse etfLookThrough(@PathVariable long accountId) {
+        return etfLookThroughService.lookThrough(accountId);
     }
 }

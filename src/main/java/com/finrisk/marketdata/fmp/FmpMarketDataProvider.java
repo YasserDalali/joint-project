@@ -3,6 +3,7 @@ package com.finrisk.marketdata.fmp;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finrisk.marketdata.CompanyProfile;
+import com.finrisk.marketdata.EtfHolding;
 import com.finrisk.marketdata.MarketDataProvider;
 import com.finrisk.marketdata.PricePoint;
 import org.slf4j.Logger;
@@ -22,6 +23,11 @@ import java.util.List;
 public class FmpMarketDataProvider implements MarketDataProvider {
 
     private static final Logger log = LoggerFactory.getLogger(FmpMarketDataProvider.class);
+
+    // FMP v3 etf-holder response fields; weightPercentage is a percent (7.1 = 7.1%).
+    private static final String ETF_ASSET_FIELD = "asset";
+    private static final String ETF_NAME_FIELD = "name";
+    private static final String ETF_WEIGHT_FIELD = "weightPercentage";
 
     private final FmpConfig config;
     private final HttpClient http;
@@ -95,6 +101,38 @@ public class FmpMarketDataProvider implements MarketDataProvider {
         } catch (Exception e) {
             log.warn("FMP fetchProfile failed for symbol {}: {}", symbol, e.getMessage());
             return unknown;
+        }
+    }
+
+    @Override
+    public List<EtfHolding> fetchEtfHoldings(String etfSymbol) {
+        if (config.getApiKey() == null || config.getApiKey().isBlank()) {
+            return List.of();
+        }
+        try {
+            String url = "%s/etf-holder/%s?apikey=%s"
+                    .formatted(config.getBaseUrl(), etfSymbol, config.getApiKey());
+            HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+                    .GET()
+                    .build();
+            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() != 200) {
+                log.warn("FMP etf-holder returned HTTP {} for symbol {}", resp.statusCode(), etfSymbol);
+                return List.of();
+            }
+            JsonNode root = mapper.readTree(resp.body());
+            List<EtfHolding> holdings = new ArrayList<>();
+            for (JsonNode n : root) { // ponytail: non-array body iterates its fields, which lack the keys and are skipped
+                if (!n.hasNonNull(ETF_ASSET_FIELD) || !n.hasNonNull(ETF_WEIGHT_FIELD)) continue;
+                holdings.add(new EtfHolding(
+                        n.get(ETF_ASSET_FIELD).asText(),
+                        n.path(ETF_NAME_FIELD).asText(n.get(ETF_ASSET_FIELD).asText()),
+                        new BigDecimal(n.get(ETF_WEIGHT_FIELD).asText()).movePointLeft(2)));
+            }
+            return holdings;
+        } catch (Exception e) {
+            log.warn("FMP fetchEtfHoldings failed for symbol {}: {}", etfSymbol, e.getMessage());
+            return List.of();
         }
     }
 }

@@ -16,4 +16,11 @@ public interface MarketDataProvider {
      * default profile with sector/industry = "Unknown" on any error.
      */
     CompanyProfile fetchProfile(String symbol);
+
+    /**
+     * Returns the constituents of ETF {@code etfSymbol} with weights as
+     * fractions. Never throws; returns an empty list on unknown symbol,
+     * missing key or network error.
+     */
+    List<EtfHolding> fetchEtfHoldings(String etfSymbol);
 }
