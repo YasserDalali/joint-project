@@ -2,6 +2,7 @@ package com.finrisk.controller;
 
 import com.finrisk.dto.response.BetaResponse;
 import com.finrisk.dto.response.CorrelationResponse;
+import com.finrisk.dto.response.DrawdownResponse;
 import com.finrisk.dto.response.PortfolioResponse;
 import com.finrisk.dto.response.ProfitLossResponse;
 import com.finrisk.dto.response.RiskScoreResponse;
@@ -10,6 +11,7 @@ import com.finrisk.dto.response.SectorExposureResponse;
 import com.finrisk.service.BetaService;
 import com.finrisk.service.CorrelationService;
 import com.finrisk.service.DiversificationService;
+import com.finrisk.service.DrawdownService;
 import com.finrisk.service.PortfolioService;
 import com.finrisk.service.ProfitLossService;
 import com.finrisk.service.RiskService;
@@ -30,6 +32,7 @@ public class PortfolioController {
     private final SectorExposureService sectorExposureService;
     private final DiversificationService diversificationService;
     private final CorrelationService correlationService;
+    private final DrawdownService drawdownService;
 
     public PortfolioController(
             PortfolioService portfolioService,
@@ -38,7 +41,8 @@ public class PortfolioController {
             BetaService betaService,
             SectorExposureService sectorExposureService,
             DiversificationService diversificationService,
-            CorrelationService correlationService) {
+            CorrelationService correlationService,
+            DrawdownService drawdownService) {
         this.portfolioService = portfolioService;
         this.profitLossService = profitLossService;
         this.riskService = riskService;
@@ -46,6 +50,7 @@ public class PortfolioController {
         this.sectorExposureService = sectorExposureService;
         this.diversificationService = diversificationService;
         this.correlationService = correlationService;
+        this.drawdownService = drawdownService;
     }
 
     @GetMapping("/portfolio")
@@ -81,5 +86,10 @@ public class PortfolioController {
     @GetMapping("/correlation")
     public CorrelationResponse correlation(@PathVariable long accountId) {
         return correlationService.computeCorrelation(accountId);
+    }
+
+    @GetMapping("/drawdown")
+    public DrawdownResponse drawdown(@PathVariable long accountId) {
+        return drawdownService.computeDrawdown(accountId);
     }
 }
