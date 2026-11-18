@@ -89,7 +89,38 @@ class DrawdownServiceTest {
         DrawdownResponse r = service.computeDrawdown(1L);
 
         assertThat(r.maxDrawdown()).isCloseTo(-0.20, within(1e-9));
-        assertThat(r.currentDrawdown()).isCloseTo(126.0 / 126.0 - 1, within(1e-12));
+        assertThat(r.currentDrawdown()).isCloseTo(0.0, within(1e-12));
+    }
+
+    @Test
+    void startingValueCountsAsPeakWhenFirstMoveIsDown() {
+        // Index path = price/100: 0.90, 0.92, 0.95, 0.97, 0.99 with peak staying 1.0 (the start).
+        // max = 90/100 - 1 = -0.10; current = 99/100 - 1 = -0.01
+        givenSingleHolding(List.of(100.0, 90.0, 92.0, 95.0, 97.0, 99.0)); // 5 returns
+
+        DrawdownResponse r = service.computeDrawdown(1L);
+
+        assertThat(r.maxDrawdown()).isCloseTo(-0.10, within(1e-9));
+        assertThat(r.currentDrawdown()).isCloseTo(-0.01, within(1e-9));
+    }
+
+    @Test
+    void portfolioDrawdownUsesWeightsAcrossMultipleHoldings() {
+        // A: 100,200,100,100,100,100 -> log returns ln2, -ln2, 0, 0, 0. B: flat 100 -> returns all 0.
+        // Weights 0.5/0.5 -> portfolio r = 0.5*ln2, -0.5*ln2, 0, 0, 0.
+        // index: sqrt(2)=1.41421 (peak), then 1.0, then stays 1.0.
+        // max = current = 1/sqrt(2) - 1 = -0.29289 (A alone would be -0.5, B alone 0).
+        Holding a = holding(1, "A"), b = holding(2, "B");
+        when(prices.requireHoldings(1L)).thenReturn(List.of(a, b));
+        when(prices.weights(List.of(a, b))).thenReturn(new double[] {0.5, 0.5});
+        when(prices.assetPricesOldestFirst(1L)).thenReturn(List.of(100.0, 200.0, 100.0, 100.0, 100.0, 100.0));
+        when(prices.assetPricesOldestFirst(2L)).thenReturn(List.of(100.0, 100.0, 100.0, 100.0, 100.0, 100.0));
+
+        DrawdownResponse r = service.computeDrawdown(1L);
+
+        double expected = 1 / Math.sqrt(2) - 1;
+        assertThat(r.maxDrawdown()).isCloseTo(expected, within(1e-9));
+        assertThat(r.currentDrawdown()).isCloseTo(expected, within(1e-9));
     }
 
     @Test
