@@ -55,7 +55,16 @@ public class FmpMarketDataProvider implements MarketDataProvider {
 
     /** Path-segment encoding: URLEncoder is form encoding, so '+' becomes %20. */
     private static String enc(String symbol) {
+        if (".".equals(symbol) || "..".equals(symbol)) {
+            // URLEncoder leaves dots alone, which would make a dot path segment.
+            throw new IllegalArgumentException("invalid symbol");
+        }
         return URLEncoder.encode(symbol, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    private static void restoreInterrupt(InterruptedException ie, String symbol) {
+        Thread.currentThread().interrupt();
+        log.warn("FMP request interrupted for symbol {}: {}", symbol, ie.getClass().getSimpleName());
     }
 
     private HttpRequest get(String url) {
@@ -86,6 +95,9 @@ public class FmpMarketDataProvider implements MarketDataProvider {
                 points.add(new PricePoint(date, close));
             }
             return points;
+        } catch (InterruptedException ie) {
+            restoreInterrupt(ie, symbol);
+            return List.of();
         } catch (Exception e) {
             log.warn("FMP fetch failed for symbol {}: {}", symbol, e.getClass().getSimpleName());
             return List.of();
@@ -117,6 +129,9 @@ public class FmpMarketDataProvider implements MarketDataProvider {
                     p.path("sector").asText("Unknown"),
                     p.path("industry").asText("Unknown"),
                     p.path("companyName").asText(symbol));
+        } catch (InterruptedException ie) {
+            restoreInterrupt(ie, symbol);
+            return unknown;
         } catch (Exception e) {
             log.warn("FMP fetchProfile failed for symbol {}: {}", symbol, e.getClass().getSimpleName());
             return unknown;
@@ -153,6 +168,9 @@ public class FmpMarketDataProvider implements MarketDataProvider {
                 }
             }
             return holdings;
+        } catch (InterruptedException ie) {
+            restoreInterrupt(ie, etfSymbol);
+            return List.of();
         } catch (Exception e) {
             log.warn("FMP fetchEtfHoldings failed for symbol {}: {}", etfSymbol, e.getClass().getSimpleName());
             return List.of();

@@ -171,6 +171,86 @@ class FmpMarketDataProviderTest {
         }
     }
 
+    /** A port that was just bound and released, so nothing is listening on it. */
+    private static int closedPort() throws Exception {
+        try (java.net.ServerSocket s = new java.net.ServerSocket(0)) {
+            return s.getLocalPort();
+        }
+    }
+
+    @Test
+    void interruptFlagIsRestoredInAllThreeMethods() throws Exception {
+        com.sun.net.httpserver.HttpServer server =
+                com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("localhost", 0), 0);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        server.createContext("/", ex -> {
+            try { release.await(); } catch (InterruptedException ignored) { }
+            ex.close();
+        });
+        server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
+        server.start();
+        var logs = captureLogs();
+        try {
+            FmpMarketDataProvider p = new FmpMarketDataProvider(cfgFor(server));
+            java.util.List<java.util.function.Supplier<Object>> calls = java.util.List.of(
+                    () -> p.fetchDailyPrices("AAPL", 5),
+                    () -> p.fetchProfile("AAPL"),
+                    () -> p.fetchEtfHoldings("AAPL"));
+            for (var call : calls) {
+                Thread.currentThread().interrupt();
+                Object result = call.get();
+                boolean stillInterrupted = Thread.interrupted(); // also clears it
+                assertThat(stillInterrupted).as("interrupt flag").isTrue();
+                if (result instanceof List<?> l) {
+                    assertThat(l).isEmpty();
+                } else {
+                    assertThat(((CompanyProfile) result).sector()).isEqualTo("Unknown");
+                }
+            }
+            assertThat(logs.list).hasSize(3);
+            for (var ev : logs.list) {
+                assertThat(ev.getFormattedMessage()).doesNotContain("secret-key-123")
+                        .doesNotContain("apikey").doesNotContain("http://").doesNotContain("null")
+                        .contains("AAPL");
+                assertThat(ev.getThrowableProxy()).isNull();
+            }
+        } finally {
+            Thread.interrupted();
+            releaseLogs(logs);
+            release.countDown();
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void dotSymbolsAreRejectedWithoutARequest() throws Exception {
+        java.util.List<String> paths = new java.util.concurrent.CopyOnWriteArrayList<>();
+        com.sun.net.httpserver.HttpServer server = serve(paths::add, 200, "[]");
+        try {
+            FmpMarketDataProvider p = new FmpMarketDataProvider(cfgFor(server));
+            for (String sym : List.of(".", "..")) {
+                assertThat(p.fetchDailyPrices(sym, 5)).isEmpty();
+                assertThat(p.fetchProfile(sym).sector()).isEqualTo("Unknown");
+                assertThat(p.fetchEtfHoldings(sym)).isEmpty();
+            }
+            assertThat(paths).isEmpty();
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void dotInsideSymbolIsStillRequested() throws Exception {
+        java.util.List<String> paths = new java.util.concurrent.CopyOnWriteArrayList<>();
+        com.sun.net.httpserver.HttpServer server = serve(paths::add, 200, "[]");
+        try {
+            new FmpMarketDataProvider(cfgFor(server)).fetchEtfHoldings("BRK.B");
+            assertThat(paths).containsExactly("/etf-holder/BRK.B");
+        } finally {
+            server.stop(0);
+        }
+    }
+
     private static ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> captureLogs() {
         ch.qos.logback.classic.Logger logger =
                 (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(FmpMarketDataProvider.class);
@@ -186,12 +266,12 @@ class FmpMarketDataProviderTest {
     }
 
     @Test
-    void failedRequestLogsNoApiKeyNoUrlNoNull() {
+    void failedRequestLogsNoApiKeyNoUrlNoNull() throws Exception {
         var logs = captureLogs();
         try {
             FmpConfig cfg = new FmpConfig();
             cfg.setApiKey("secret-key-123");
-            cfg.setBaseUrl("http://localhost:19999");
+            cfg.setBaseUrl("http://localhost:" + closedPort());
             FmpMarketDataProvider p = new FmpMarketDataProvider(cfg);
             p.fetchDailyPrices("AAPL", 5);
             p.fetchProfile("AAPL");
