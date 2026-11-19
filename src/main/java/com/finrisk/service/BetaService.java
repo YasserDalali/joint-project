@@ -8,6 +8,7 @@ import com.finrisk.dto.response.HoldingBeta;
 import com.finrisk.exception.AccountNotFoundException;
 import com.finrisk.marketdata.MarketDataProvider;
 import com.finrisk.marketdata.PricePoint;
+import com.finrisk.util.ReturnsMath;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -75,15 +76,17 @@ public class BetaService {
     }
 
     private double computeHoldingBeta(List<Double> assetPrices, List<Double> spyPrices) {
-        int n = Math.min(assetPrices.size(), spyPrices.size()) - 1;
-        if (n < MIN_SAMPLES) return 1.0;
+        // Both price lists are oldest-first; align the return series at the newest end.
+        double[] allA = ReturnsMath.logReturns(assetPrices);
+        double[] allM = ReturnsMath.logReturns(spyPrices);
+        int len = Math.min(allA.length, allM.length);
+        if (len < MIN_SAMPLES) return 1.0;
 
-        double[] rA = logReturns(assetPrices.subList(0, n + 1));
-        double[] rM = logReturns(spyPrices.subList(0, n + 1));
-        int len = Math.min(rA.length, rM.length);
+        double[] rA = ReturnsMath.tail(allA, len);
+        double[] rM = ReturnsMath.tail(allM, len);
 
-        double meanA = mean(rA, len);
-        double meanM = mean(rM, len);
+        double meanA = ReturnsMath.mean(rA);
+        double meanM = ReturnsMath.mean(rM);
 
         double cov = 0.0, varM = 0.0;
         for (int i = 0; i < len; i++) {
@@ -92,19 +95,5 @@ public class BetaService {
         }
         if (len <= 1 || varM == 0.0) return 1.0;
         return (cov / (len - 1)) / (varM / (len - 1));
-    }
-
-    private double[] logReturns(List<Double> prices) {
-        double[] r = new double[prices.size() - 1];
-        for (int i = 1; i < prices.size(); i++) {
-            r[i - 1] = Math.log(prices.get(i) / prices.get(i - 1));
-        }
-        return r;
-    }
-
-    private double mean(double[] arr, int len) {
-        double sum = 0;
-        for (int i = 0; i < len; i++) sum += arr[i];
-        return sum / len;
     }
 }
